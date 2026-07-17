@@ -7,9 +7,9 @@ variable "control_plane_nodes" {
     mac = string
   }))
   default = [
-    { hostname = "cp1", pve_node = "pve-node1", ip="", mac="C6:54:62:02:BC:F6" },
-    { hostname = "cp2", pve_node = "pve-node2", ip="", mac="C8:C6:36:CA:F0:EB" },
-    { hostname = "cp3", pve_node = "pve-node1", ip="", mac="C4:71:17:D2:C2:34" }
+    { hostname = "cp1", pve_node = "pve-node1", ip="130.246.55.77", mac="C6:54:62:02:BC:F6" },
+    { hostname = "cp2", pve_node = "pve-node2", ip="130.246.55.45", mac="C8:C6:36:CA:F0:EB" },
+    { hostname = "cp3", pve_node = "pve-node1", ip="130.246.55.68", mac="C4:71:17:D2:C2:34" }
   ]
 }
 
@@ -22,9 +22,9 @@ variable "worker_nodes" {
     mac = string
   }))
   default = [
-    { hostname = "w1", pve_node = "pve-node2", ip="", mac="9E:DF:AA:00:65:FB" },
-    { hostname = "w2", pve_node = "pve-node1", ip="", mac="C8:EA:BA:8F:03:0D" },
-    { hostname = "w3", pve_node = "pve-node2", ip="", mac="CA:AB:06:1A:69:AC" }
+    { hostname = "w1", pve_node = "pve-node2", ip="130.246.55.57", mac="9E:DF:AA:00:65:FB" },
+    { hostname = "w2", pve_node = "pve-node1", ip="130.246.55.51", mac="C8:EA:BA:8F:03:0D" },
+    { hostname = "w3", pve_node = "pve-node2", ip="130.246.55.67", mac="CA:AB:06:1A:69:AC" }
   ]
 }
 
