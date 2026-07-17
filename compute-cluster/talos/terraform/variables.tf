@@ -28,17 +28,17 @@ variable "worker_nodes" {
   ]
 }
 
-# variable "cluster_name" {
-#   description = "The name of the Talos cluster"
-#   type        = string
-#   default     = "test"
-# }
+variable "cluster_name" {
+  description = "The name of the Talos cluster"
+  type        = string
+  default     = "test"
+}
 
-# variable "install_disk" {
-#   description = "The disk to install Talos on"
-#   type        = string
-#   default     = "/dev/sda"
-# }
+variable "install_disk" {
+  description = "The disk to install Talos on"
+  type        = string
+  default     = "/dev/sda"
+}
 
 variable "proxmox_endpoint" {
   description = "The Proxmox API endpoint"
@@ -57,9 +57,3 @@ variable "iso_url" {
   type        = string
   default     = "https://factory.talos.dev/image/a7bcadbc1b6d03c0e687be3a5d9789ef7113362a6a1a038653dfd16283a92b6b/v1.13.5/nocloud-amd64.iso"
 }
-
-# variable "management_interface" {
-#   description = "Management network interface for Proxmox VE"
-#   type        = string
-#   default     = "nic0"
-# }
