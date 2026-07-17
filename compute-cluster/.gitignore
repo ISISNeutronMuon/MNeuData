@@ -1,0 +1,15 @@
+argocd-password.txt
+kubeconfig.yaml
+.vault-pass
+.junie
+
+# Talos specific exclusions
+talos/temp/controlplane.yaml
+talos/temp/worker.yaml
+kubeconfig
+talosconfig
+.terraform.lock.hcl
+secrets.auto.tfvars
+.terraform
+terraform.tfstate
+terraform.tfstate.backup
