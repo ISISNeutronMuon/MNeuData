@@ -46,7 +46,7 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
   initialization {
     ip_config {
       ipv4 {
-        address = each.value.ip
+        address = "${each.value.ip}/22"
         gateway = "130.246.52.254"
       }
     }
@@ -109,7 +109,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
   initialization {
     ip_config {
       ipv4 {
-        address = each.value.ip
+        address = "${each.value.ip}/22"
         gateway = "130.246.52.254"
       }
     }
