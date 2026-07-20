@@ -14,137 +14,67 @@ resource "proxmox_virtual_environment_file" "talos_iso" {
   }
 }
 
-resource "proxmox_virtual_environment_vm" "control_plane" {
-  for_each = { for node in var.control_plane_nodes : node.hostname => node }
+################################################################################
+# Node Modules (VM + Talos Config)
+################################################################################
 
-  name      = each.value.hostname
-  node_name = each.value.pve_node
+module "control_plane_first" {
+  source = "./modules/talos_node"
 
-  machine = "q35"
-  bios    = "ovmf"
+  hostname = var.control_plane_nodes[0].hostname
+  pve_node = var.control_plane_nodes[0].pve_node
+  ip       = var.control_plane_nodes[0].ip
+  mac      = var.control_plane_nodes[0].mac
+  iso_id   = proxmox_virtual_environment_file.talos_iso[var.control_plane_nodes[0].pve_node].id
 
-  cpu {
-    cores = 4
-    type  = "host"
-  }
-
-  memory {
-    dedicated = 16384
-    floating  = 0 # Disable memory ballooning
-  }
-
-  agent {
-    enabled = true
-    trim    = true
-  }
-
-  network_device {
-    mac_address = each.value.mac
-    bridge      = "vmbr0"
-  }
-
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "${each.value.ip}/22"
-        gateway = "130.246.52.254"
-      }
-    }
-  }
-
-  disk {
-    datastore_id = "local-lvm"
-    file_format  = "raw"
-    interface    = "scsi0"
-    size         = 32
-    discard      = "on"
-    ssd          = true
-  }
-
-  efi_disk {
-    datastore_id = "local-lvm"
-  }
-
-  boot_order = ["scsi0", "ide3"]
-
-  cdrom {
-    file_id   = proxmox_virtual_environment_file.talos_iso[each.value.pve_node].id
-    interface = "ide3"
-  }
-
-  operating_system {
-    type = "l26"
-  }
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
+  install_disk                = var.install_disk
 }
 
-resource "proxmox_virtual_environment_vm" "worker" {
+module "control_plane_others" {
+  source   = "./modules/talos_node"
+  for_each = { for i, node in slice(var.control_plane_nodes, 1, length(var.control_plane_nodes)) : node.hostname => node }
+
+  hostname = each.value.hostname
+  pve_node = each.value.pve_node
+  ip       = each.value.ip
+  mac      = each.value.mac
+  iso_id   = proxmox_virtual_environment_file.talos_iso[each.value.pve_node].id
+
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
+  install_disk                = var.install_disk
+
+  depends_on = [talos_machine_bootstrap.this]
+}
+
+module "worker" {
+  source   = "./modules/talos_node"
   for_each = { for node in var.worker_nodes : node.hostname => node }
 
-  name      = each.value.hostname
-  node_name = each.value.pve_node
+  hostname         = each.value.hostname
+  pve_node         = each.value.pve_node
+  ip               = each.value.ip
+  mac              = each.value.mac
+  iso_id           = proxmox_virtual_environment_file.talos_iso[each.value.pve_node].id
+  cpu_cores        = 16
+  memory_dedicated = 49152
 
-  machine = "q35"
-  bios    = "ovmf"
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
+  install_disk                = var.install_disk
 
-  cpu {
-    cores = 16
-    type  = "host"
-  }
-
-  memory {
-    dedicated = 49152
-    floating  = 0 # Disable memory ballooning
-  }
-
-  agent {
-    enabled = true
-    trim    = true
-  }
-
-  network_device {
-    mac_address = each.value.mac
-    bridge      = "vmbr0"
-  }
-
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "${each.value.ip}/22"
-        gateway = "130.246.52.254"
-      }
-    }
-  }
-
-  disk {
-    datastore_id = "local-lvm"
-    file_format  = "raw"
-    interface    = "scsi0"
-    size         = 32
-    discard      = "on"
-    ssd          = true
-  }
-
-  efi_disk {
-    datastore_id = "local-lvm"
-  }
-
-  boot_order = ["scsi0", "ide3"]
-
-  cdrom {
-    file_id   = proxmox_virtual_environment_file.talos_iso[each.value.pve_node].id
-    interface = "ide3"
-  }
-
-  operating_system {
-    type = "l26"
-  }
+  depends_on = [module.control_plane_others]
 }
-
-################################################################################
-# Locals for shared configurations
 ################################################################################
 
 locals {
+  # Derive the Talos installer image from the ISO URL to ensure consistency.
+  # Example: https://factory.talos.dev/image/<schematic>/<version>/nocloud-amd64.iso 
+  # -> factory.talos.dev/installer/<schematic>:<version>
+  talos_installer_image = "${split("/", var.iso_url)[2]}/installer/${split("/", var.iso_url)[4]}:${split("/", var.iso_url)[5]}"
+
   common_machine_config = {
     cluster = {
       network = {
@@ -153,6 +83,9 @@ locals {
       proxy = { disabled = true }
     }
     machine = {
+      install = {
+        image = local.talos_installer_image
+      }
       features = {
         kubePrism = {
           enabled = true
@@ -173,7 +106,14 @@ data "talos_machine_configuration" "controlplane" {
   cluster_endpoint = "https://${var.control_plane_nodes[0].ip}:6443"
   machine_type     = "controlplane"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
-  config_patches   = [yamlencode(local.common_machine_config)]
+  config_patches = [
+    yamlencode(local.common_machine_config),
+    yamlencode({
+      cluster = {
+        allowSchedulingOnControlPlanes = false
+      }
+    })
+  ]
 }
 
 data "talos_machine_configuration" "worker" {
@@ -184,50 +124,11 @@ data "talos_machine_configuration" "worker" {
   config_patches   = [yamlencode(local.common_machine_config)]
 }
 
-################################################################################
-# Machine Configuration Application
-################################################################################
-
-resource "talos_machine_configuration_apply" "controlplane" {
-  for_each = { for node in var.control_plane_nodes : node.hostname => node }
-
-  client_configuration        = talos_machine_secrets.this.client_configuration
-  machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
-  node = each.value.ip
-  config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk = var.install_disk
-        }
-        certSANs = [
-          each.value.ip,
-          each.value.hostname
-        ]
-      }
-    })
-  ]
-}
-
-resource "talos_machine_configuration_apply" "worker" {
-  for_each = { for node in var.worker_nodes : node.hostname => node }
-
-  client_configuration        = talos_machine_secrets.this.client_configuration
-  machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
-  node                        = each.value.ip
-  config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk = var.install_disk
-        }
-        certSANs = [
-          each.value.ip,
-          each.value.hostname
-        ]
-      }
-    })
-  ]
+data "talos_client_configuration" "this" {
+  cluster_name         = var.cluster_name
+  client_configuration = talos_machine_secrets.this.client_configuration
+  nodes                = [for node in var.control_plane_nodes : node.ip]
+  endpoints            = [for node in var.control_plane_nodes : node.ip]
 }
 
 ################################################################################
@@ -235,28 +136,17 @@ resource "talos_machine_configuration_apply" "worker" {
 ################################################################################
 
 resource "talos_machine_bootstrap" "this" {
-  depends_on           = [talos_machine_configuration_apply.controlplane]
+  depends_on           = [module.control_plane_first]
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = var.control_plane_nodes[0].ip
   endpoint             = var.control_plane_nodes[0].ip
 }
 
 resource "talos_cluster_kubeconfig" "this" {
-  depends_on           = [talos_machine_bootstrap.this]
+  depends_on           = [talos_machine_bootstrap.this, module.control_plane_others, module.worker]
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = var.control_plane_nodes[0].ip
   endpoint             = var.control_plane_nodes[0].ip
-  timeouts = {
-    read = "10m"
-  }
-}
-
-data "talos_cluster_health" "this" {
-  depends_on           = [talos_cluster_kubeconfig.this, talos_machine_configuration_apply.worker]
-  client_configuration = talos_machine_secrets.this.client_configuration
-  control_plane_nodes  = [for node in var.control_plane_nodes : node.ip]
-  worker_nodes         = [for node in var.worker_nodes : node.ip]
-  endpoints            = [for node in var.control_plane_nodes : node.ip]
   timeouts = {
     read = "10m"
   }
@@ -272,6 +162,6 @@ output "kubeconfig" {
 }
 
 output "talosconfig" {
-  value     = talos_machine_secrets.this.client_configuration
+  value     = data.talos_client_configuration.this.talos_config
   sensitive = true
 }

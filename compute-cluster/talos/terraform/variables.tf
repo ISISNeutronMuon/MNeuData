@@ -55,5 +55,5 @@ variable "proxmox_password" {
 variable "iso_url" {
   description = "The URL for the Talos ISO"
   type        = string
-  default     = "https://factory.talos.dev/image/a7bcadbc1b6d03c0e687be3a5d9789ef7113362a6a1a038653dfd16283a92b6b/v1.13.5/nocloud-amd64.iso"
+  default     = "https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.13.5/nocloud-amd64.iso"
 }

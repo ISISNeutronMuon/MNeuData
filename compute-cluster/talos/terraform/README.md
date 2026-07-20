@@ -1,68 +1,92 @@
-# Talos Kubernetes Cluster Terraform Implementation
+# Talos Kubernetes Cluster on Proxmox
 
-This directory contains a Terraform implementation that sets up a Talos Kubernetes cluster and installs the Cilium CNI, now featuring automated bare-metal Proxmox VE provisioning using iDRAC Redfish API.
+This repository contains Terraform configurations to deploy a high-availability Talos Kubernetes cluster on Proxmox Virtual Environment. It automates the provisioning of virtual machines, handles the Talos machine configuration, and bootstraps the cluster in a deterministic, sequential manner.
+
+## Architecture
+
+### Grouped Sequential Deployment
+To ensure stable cluster formation, the deployment follows a "Grouped Sequential" strategy:
+1. **First Control Plane (CP1)**: Provisioned and bootstrapped first to establish the cluster API.
+2. **Additional Control Planes**: Provisioned and joined to the cluster only after CP1 is successfully bootstrapped.
+3. **Worker Nodes**: Provisioned and joined once the full control plane is operational.
+
+### Unified Node Module
+Infrastructure (Proxmox VMs) and software configuration (Talos Application) are unified in a single `talos_node` module. This ensures that Talos configurations are applied immediately after the VM is created and reachable, while maintaining clean, DRY code.
+
+### Security & Defaults
+- **Tainted Control Planes**: Control plane nodes are automatically tainted with `node-role.kubernetes.io/control-plane:NoSchedule` to reserve them for cluster management.
+- **KubePrism**: Enabled for simplified internal cluster communication.
+- **CNI**: Currently configured with `none`, allowing for manual or post-deployment installation of CNIs like Cilium.
 
 ## Prerequisites
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0.0
-- Dell PowerEdge servers with iDRAC Redfish API access.
-- iDRAC credentials with sufficient privileges (set in `idrac_username`, `idrac_password1`, and `idrac_password2` variables).
-- Target OS installation password (configured via `proxmox_password`).
-- `proxmox-auto-install-assistant` installed locally (used to embed answer files into the ISO):
-  ```bash
-  wget https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg -O /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg
-  echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve.list
-  apt-get update && apt-get install proxmox-auto-install-assistant
-  ```
-- The machine running Terraform must be reachable from the iDRACs over HTTP (set `iso_server_address` to its IP; port defaults to `8000`).
-- Access to the nodes specified in `variables.tf` via the Talos API (usually port 50000).
+- [Talosctl](https://www.talos.dev/latest/introduction/getting-started/#installing-talosctl)
+- [Kubectl](https://kubernetes.io/docs/tasks/tools/)
+- Proxmox VE 8.x environment with API access.
 
-## Proxmox VE Provisioning & Clustering Flow
+## Configuration
 
-This Terraform workspace automates the entire bare-metal lifecycle before deploying the Talos Kubernetes cluster:
+1. **Variables**: Review `variables.tf` to configure:
+   - `control_plane_nodes`: Hostnames, IPs, MAC addresses, and target Proxmox nodes.
+   - `worker_nodes`: Hostnames, IPs, MAC addresses, and target Proxmox nodes.
+   - `iso_url`: The Talos ISO image to be uploaded to Proxmox.
+2. **Secrets**: Create a `secrets.auto.tfvars` file to store sensitive credentials:
+   ```hcl
+   proxmox_password = "your-secure-password"
+   ```
 
-1. **Automated Answer File**: Generates node-specific TOML answer files (`proxmox-installer-configuration-*.toml`) from templates to configure region, keyboard, root password (`proxmox_password`), and network settings (supporting both DHCP and static IP configuration on `nic0`).
-2. **Auto-Install ISO Preparation**: Downloads the stock Proxmox VE ISO (`proxmox_iso_url`) once into `isos/`, then runs `proxmox-auto-install-assistant prepare-iso --fetch-from iso` to embed each node's answer file, producing `isos/proxmox-auto-pve-node{1,2}.iso`. This is what makes the installation fully unattended — the stock ISO on its own only boots the interactive GUI installer.
-3. **Local ISO Hosting**: Starts a small HTTP server (`python3 -m http.server`, port `iso_server_port`) on the machine running Terraform so the iDRACs can stream the prepared ISOs from `http://<iso_server_address>:<port>/`. The server must remain running until installation completes.
-4. **iDRAC ISO Mounting**: Uses the `dell/redfish` provider to mount each node's prepared ISO on the virtual media interface of the corresponding physical node.
-5. **Hardware Boot Override & Reboot**: Overrides the boot target to Virtual Media (CD/DVD) and initiates a reboot (`ForceRestart`) via iDRAC API. The node boots into the automated installer, installs Proxmox unattended, and reboots into the installed system.
-6. **iSM Installation**: Once Proxmox VE is installed and online (SSH waits up to 45 minutes), SSH-based provisioners automatically download and install the iDRAC Service Module (`dcism`/`dcism-osc`) to establish native OS-to-iDRAC telemetry.
-7. **Clustering**: Automatically configures the first node as the cluster master (`pvecm create`) and joins the second node non-interactively using an automated `expect` login session (`pvecm add`).
-8. **Talos VM Deployment**: Triggers the VM provisioning and Kubernetes clustering only after the Proxmox cluster is fully configured and ready.
+## Deployment Guide (Nothing to Cluster)
 
-## Usage
+Follow these steps to deploy the cluster from scratch:
 
-1. Initialize Terraform:
+1. **Initialize Terraform**:
+   Download the required providers (Talos, Proxmox, etc.).
    ```bash
    terraform init
    ```
 
-2. Review the plan (ensure all credentials are set in environment variables or `secrets.auto.tfvars`):
+2. **Validate Configuration**:
+   Ensure the HCL syntax and logic are correct.
    ```bash
-   terraform plan
+   terraform validate
    ```
 
-3. Apply the configuration:
+3. **Apply Deployment**:
+   Execute the plan. This will take several minutes as it uploads the ISO, creates VMs, and waits for cluster bootstrapping.
    ```bash
    terraform apply
    ```
 
+4. **Extract Configuration**:
+   Once finished, extract the `kubeconfig` and `talosconfig` from the Terraform state.
+   ```bash
+   # Extract Kubeconfig
+   terraform output -raw kubeconfig > kubeconfig.yaml
+   export KUBECONFIG=$(pwd)/kubeconfig.yaml
+
+   # Extract Talosconfig
+   terraform output -raw talosconfig > talosconfig.yaml
+   ```
+
+5. **Verify Cluster Health**:
+   Check if the nodes are ready and the cluster is healthy.
+   ```bash
+   # Check Talos nodes
+   talosctl --talosconfig talosconfig.yaml health -n <CP1_IP>
+
+   # Check Kubernetes nodes
+   kubectl get nodes
+   ```
+
 ## Repository Structure
 
-- `providers.tf`: Centralized provider configurations (Talos, Helm, Kubernetes, Redfish).
-- `variables.tf`: Input variables including network, iDRAC credentials, and fallback settings.
-- `idrac.tf`: iDRAC virtual media mounting, answer file generation, and hardware booting resources.
-- `proxmox_init.tf`: SSH scripts for automated iSM installation and non-interactive Proxmox clustering.
-- `main.tf`: Core logic for Talos VMs, secrets, machine configurations, and bootstrapping, integrated to wait for clustering to complete.
-- `cilium.tf`: Helm-based Cilium CNI installation using structured `yamlencode` values.
-- `argocd.tf`: Helm-based ArgoCD installation using structured `yamlencode` values.
+- `main.tf`: Defines machine secrets, shared configurations, and the sequential deployment logic.
+- `providers.tf`: Configures the `siderolabs/talos` and `bpg/proxmox` providers.
+- `variables.tf`: Defines network and infrastructure parameters.
+- `modules/talos_node`: Reusable module for VM and Talos node lifecycle management.
+- `secrets.auto.tfvars`: (User-provided) Sensitive credentials.
 
-## Outputs
+## Maintenance
 
-- `kubeconfig`: The generated kubeconfig for the cluster (sensitive).
-- `talosconfig`: The Talos client configuration (sensitive).
-
-To extract the kubeconfig:
-```bash
-terraform output -raw kubeconfig > kubeconfig.yaml
-```
+To scale the cluster, simply add new entries to the `control_plane_nodes` or `worker_nodes` lists in `variables.tf` and run `terraform apply` again.
