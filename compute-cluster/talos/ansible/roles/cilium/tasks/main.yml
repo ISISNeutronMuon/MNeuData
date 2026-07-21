@@ -1,0 +1,41 @@
+---
+- name: Check if Cilium is already installed
+  shell: helm list -n {{ cilium_namespace }} --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml" -q | grep -q "^cilium$"
+  register: cilium_check
+  failed_when: false
+  changed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: Add Cilium Helm repo
+  shell: helm repo add cilium {{ cilium_helm_repo }}
+  delegate_to: localhost
+  run_once: true
+  when: cilium_check.rc != 0
+
+- name: Update Helm repos
+  shell: helm repo update
+  delegate_to: localhost
+  run_once: true
+  when: cilium_check.rc != 0
+
+- name: Install Cilium
+  shell: |
+    helm upgrade --install cilium cilium/cilium \
+      --version {{ cilium_version }} \
+      --namespace {{ cilium_namespace }} \
+      --create-namespace \
+      --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml" \
+      --set ipam.mode=kubernetes \
+      --set kubeProxyReplacement=true \
+      --set securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
+      --set securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
+      --set cgroup.autoMount.enabled=false \
+      --set cgroup.hostRoot=/sys/fs/cgroup \
+      --set k8sServiceHost={{ first_server_ip }} \
+      --set k8sServicePort=6443 \
+      --set gatewayAPI.enabled=true \
+      --set l2announcements.enabled=true \
+      --wait
+  delegate_to: localhost
+  run_once: true

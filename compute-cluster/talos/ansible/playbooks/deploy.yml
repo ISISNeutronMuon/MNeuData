@@ -1,0 +1,14 @@
+---
+- name: Post-provisioning configuration
+  hosts: control_plane[0]
+  gather_facts: false
+  vars:
+    first_server_ip: "{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}"
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/vault.yml
+  roles:
+    - role: cilium
+      tags: cilium
+    - role: argocd
+      tags: argocd

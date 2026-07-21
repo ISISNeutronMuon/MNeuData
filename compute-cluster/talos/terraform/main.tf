@@ -165,3 +165,10 @@ output "talosconfig" {
   value     = data.talos_client_configuration.this.talos_config
   sensitive = true
 }
+
+output "ansible_inventory" {
+  value = templatefile("${path.module}/templates/inventory.yml.tpl", {
+    control_plane_nodes = var.control_plane_nodes
+    worker_nodes        = var.worker_nodes
+  })
+}

@@ -6,8 +6,8 @@ kubeconfig.yaml
 # Talos specific exclusions
 talos/temp/controlplane.yaml
 talos/temp/worker.yaml
-kubeconfig
-talosconfig
+kubeconfig*
+talosconfig*
 .terraform.lock.hcl
 secrets.auto.tfvars
 .terraform
