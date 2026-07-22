@@ -32,10 +32,13 @@
       --set securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
       --set cgroup.autoMount.enabled=false \
       --set cgroup.hostRoot=/sys/fs/cgroup \
-      --set k8sServiceHost={{ first_server_ip }} \
-      --set k8sServicePort=6443 \
+      --set k8sServiceHost=localhost \
+      --set k8sServicePort=7445 \
       --set gatewayAPI.enabled=true \
-      --set l2announcements.enabled=true \
-      --wait
+      --set gatewayAPI.enableAlpn=true \
+      --set gatewayAPI.enableAppProtocol=true \
+      --set routingMode=native \
+      --set autoDirectNodeRoutes=true \
+      --set ipv4NativeRoutingCIDR="10.244.0.0/16"
   delegate_to: localhost
   run_once: true

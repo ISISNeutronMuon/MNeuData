@@ -57,3 +57,9 @@ variable "iso_url" {
   type        = string
   default     = "https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.13.5/nocloud-amd64.iso"
 }
+
+variable "machine_type" {
+  description = "The machine type for the VMs (pinned to 10.1 to avoid VirtIO regression, that breaks networking between nodes)"
+  type        = string
+  default     = "pc-q35-10.1"
+}

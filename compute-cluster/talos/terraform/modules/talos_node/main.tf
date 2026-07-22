@@ -2,7 +2,7 @@ resource "proxmox_virtual_environment_vm" "this" {
   name      = var.hostname
   node_name = var.pve_node
 
-  machine = "q35"
+  machine = var.machine_type
   bios    = "ovmf"
 
   cpu {

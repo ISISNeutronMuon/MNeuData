@@ -30,6 +30,7 @@ module "control_plane_first" {
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
   install_disk                = var.install_disk
+  machine_type                = var.machine_type
 }
 
 module "control_plane_others" {
@@ -45,6 +46,7 @@ module "control_plane_others" {
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
   install_disk                = var.install_disk
+  machine_type                = var.machine_type
 
   depends_on = [talos_machine_bootstrap.this]
 }
@@ -64,6 +66,7 @@ module "worker" {
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
   install_disk                = var.install_disk
+  machine_type                = var.machine_type
 
   depends_on = [module.control_plane_others]
 }

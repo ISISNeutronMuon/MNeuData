@@ -1,3 +1,33 @@
 global:
   networkPolicy:
     create: false
+
+configs:
+  params:
+    server.insecure: "true"
+redis-ha:
+  enabled: true
+
+controller:
+  replicas: 2
+  readinessProbe:
+    timeoutSeconds: 10
+  livenessProbe:
+    timeoutSeconds: 10
+
+server:
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+
+repoServer:
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+  readinessProbe:
+    timeoutSeconds: 10
+  livenessProbe:
+    timeoutSeconds: 10
+
+applicationSet:
+  replicas: 2
