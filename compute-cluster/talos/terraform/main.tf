@@ -79,6 +79,7 @@ locals {
   talos_installer_image = "${split("/", var.iso_url)[2]}/installer/${split("/", var.iso_url)[4]}:${split("/", var.iso_url)[5]}"
 
   common_machine_config = {
+    # Turn off proxy and CNI to allow for clean Cilium install
     cluster = {
       network = {
         cni = { name = "none" }
