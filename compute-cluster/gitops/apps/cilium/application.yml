@@ -13,8 +13,8 @@ spec:
     targetRevision: 1.19.6
     helm:
       valueFiles:
-      - $values/gitops/apps/cilium/values.yml
-  - repoURL: https://github.com/ISISNeutronMuon/MNeuData.git
+      - $values/compute-cluster/gitops/apps/cilium/values.yml
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     ref: values
   destination:
