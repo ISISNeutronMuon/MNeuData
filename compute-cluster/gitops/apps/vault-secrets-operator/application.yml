@@ -1,32 +1,31 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cilium
+  name: vault-secrets-operator
   namespace: argocd
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
   project: infra
   sources:
-  - repoURL: https://helm.cilium.io/
-    chart: cilium
-    targetRevision: 1.19.6
+  - repoURL: https://helm.releases.hashicorp.com
+    chart: vault-secrets-operator
+    targetRevision: 0.9.1
     helm:
       valueFiles:
-      - $values/compute-cluster/gitops/apps/cilium/values.yml
+      - $values/compute-cluster/gitops/apps/vault-secrets-operator/values.yml
   - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     ref: values
   - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
-    path: compute-cluster/gitops/components/cilium
+    path: compute-cluster/gitops/components/vault-secrets-operator
   destination:
     server: https://kubernetes.default.svc
-    namespace: kube-system
+    namespace: vault-secrets-operator-system
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
-    - ServerSideApply=true

@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rook-ceph-cluster
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  sources:
+  - repoURL: https://charts.rook.io/release
+    chart: rook-ceph-cluster
+    targetRevision: v1.16.5
+    helm:
+      valueFiles:
+      - $values/compute-cluster/gitops/apps/rook-ceph-cluster/values.yml
+  - repoURL: https://github.com/ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    ref: values
+  - repoURL: https://github.com/ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    path: compute-cluster/gitops/components/rook-ceph-cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rook-ceph
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

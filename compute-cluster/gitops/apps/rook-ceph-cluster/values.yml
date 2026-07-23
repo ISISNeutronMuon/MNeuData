@@ -1,0 +1,83 @@
+operatorNamespace: rook-ceph
+clusterName: rook-ceph
+cephClusterSpec:
+  cephVersion:
+    image: quay.io/ceph/ceph:v19.2.1
+  external:
+    enable: true
+    fsid: 521e4d15-d55f-4044-bbcf-b0968225874a
+    mon_host: 130.246.53.66, 130.246.55.15
+  dataDirHostPath: /var/lib/rook
+  storage:
+    useAllNodes: false
+    useAllDevices: false
+  dashboard:
+    enabled: true
+    ssl: false
+
+cephFileSystems:
+  - name: cephfs
+    spec:
+      metadataPool:
+        replicated:
+          size: 3
+      dataPools:
+        - name: replicated
+          replicated:
+            size: 3
+      metadataServer:
+        activeCount: 1
+        activeStandby: true
+    storageClass:
+      enabled: true
+      name: cephfs
+      isDefault: false
+      reclaimPolicy: Delete
+      allowVolumeExpansion: true
+      parameters:
+        csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
+        csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+        csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
+        csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
+        csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
+        csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
+        csi.storage.k8s.io/fstype: ext4
+
+cephBlockPools:
+  - name: ceph-rbd
+    spec:
+      replicated:
+        size: 3
+    storageClass:
+      enabled: true
+      name: ceph-rbd
+      isDefault: true
+      reclaimPolicy: Delete
+      allowVolumeExpansion: true
+      parameters:
+        imageFormat: "2"
+        imageFeatures: layering
+        csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
+        csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+        csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
+        csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
+        csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
+        csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
+        csi.storage.k8s.io/fstype: ext4
+
+cephObjectStores:
+  - name: ceph-s3
+    spec:
+      metadataPool:
+        replicated:
+          size: 3
+      dataPool:
+        replicated:
+          size: 3
+      gateway:
+        port: 80
+        instances: 1
+    storageClass:
+      enabled: true
+      name: ceph-s3
+      reclaimPolicy: Delete

@@ -1,0 +1,8 @@
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStoreUser
+metadata:
+  name: monitoring-s3-user
+  namespace: rook-ceph
+spec:
+  store: ceph-s3
+  displayName: "Monitoring Stack User"

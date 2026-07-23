@@ -1,0 +1,12 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: static-auth
+  namespace: vault-secrets-operator-system
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: vault-secrets-operator
+    serviceAccount: vault-secrets-operator
+  vaultConnectionRef: isis-vault
