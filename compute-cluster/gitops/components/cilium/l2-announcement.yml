@@ -1,0 +1,9 @@
+apiVersion: "cilium.io/v2alpha1"
+kind: L2AnnouncementPolicy
+metadata:
+  name: "lan-policy"
+spec:
+  interfaces:
+  - ^ens[0-9]+
+  externalIPs: true
+  loadBalancerIPs: true

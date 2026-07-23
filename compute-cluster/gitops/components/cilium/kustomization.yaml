@@ -5,4 +5,4 @@ resources:
   - gateway-class.yml
   - gateway.yml
 #  - ip-pool.yml
-#  - l2-announcement.yml
+  - l2-announcement.yml
