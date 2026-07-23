@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  sources:
+  - repoURL: https://helm.cilium.io/
+    chart: cilium
+    targetRevision: 1.19.6
+    helm:
+      valueFiles:
+      - $values/gitops/apps/cilium/values.yml
+  - repoURL: https://github.com/ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
