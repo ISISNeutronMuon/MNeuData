@@ -8,9 +8,9 @@ metadata:
 spec:
   project: infra
   source:
-    repoURL: https://github.com/ISISNeutronMuon/MNeuData.git
+    repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
-    path: gitops/apps
+    path: compute-cluster/gitops/apps
     directory:
       recurse: true
   destination:
