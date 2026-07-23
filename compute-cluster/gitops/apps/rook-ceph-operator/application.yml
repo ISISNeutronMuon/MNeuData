@@ -14,7 +14,7 @@ spec:
     helm:
       valueFiles:
       - $values/compute-cluster/gitops/apps/rook-ceph-operator/values.yml
-  - repoURL: https://github.com/ISISNeutronMuon/MNeuData.git
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     ref: values
   destination:
