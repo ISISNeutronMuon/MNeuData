@@ -6,3 +6,4 @@ resources:
   - gateway.yml
   - ip-pool.yml
   - l2-announcement.yml
+  - http-routes.yml
