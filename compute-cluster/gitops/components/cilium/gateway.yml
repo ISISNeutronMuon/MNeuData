@@ -20,8 +20,8 @@ spec:
     protocol: HTTPS
     tls:
       mode: Terminate
-      certificateRefs:
-      - name: compute-tls
+#      certificateRefs:
+#      - name: compute-tls
     allowedRoutes:
       namespaces:
         from: All
