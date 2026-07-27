@@ -18,8 +18,8 @@ spec:
   - name: https
     port: 443
     protocol: HTTPS
-    tls:
-      mode: Terminate
+#    tls:
+#      mode: Terminate
 #      certificateRefs:
 #      - name: compute-tls
     allowedRoutes:
