@@ -5,7 +5,9 @@ metadata:
   namespace: argocd
 spec:
   parentRefs:
-  - name: gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway
     namespace: kube-system
   hostnames:
   - compute.isis.cclrc.ac.uk
@@ -15,28 +17,11 @@ spec:
         type: PathPrefix
         value: /argocd
     backendRefs:
-    - name: argocd-server
+    - group: ""
+      kind: Service
+      name: argocd-server
       port: 80
-#---
-#apiVersion: gateway.networking.k8s.io/v1
-#kind: HTTPRoute
-#metadata:
-#  name: grafana-route
-#  namespace: monitoring
-#spec:
-#  parentRefs:
-#  - name: gateway
-#    namespace: kube-system
-#  hostnames:
-#  - isis-compute.isis.cclrc.ac.uk
-#  rules:
-#  - matches:
-#    - path:
-#        type: PathPrefix
-#        value: /grafana
-#    backendRefs:
-#    - name: observability-grafana
-#      port: 80
+      weight: 1
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -45,7 +30,9 @@ metadata:
   namespace: kube-system
 spec:
   parentRefs:
-  - name: gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway
     namespace: kube-system
   hostnames:
   - compute.isis.cclrc.ac.uk
@@ -55,5 +42,8 @@ spec:
         type: PathPrefix
         value: /hubble
     backendRefs:
-    - name: hubble-ui
+    - group: ""
+      kind: Service
+      name: hubble-ui
       port: 80
+      weight: 1
