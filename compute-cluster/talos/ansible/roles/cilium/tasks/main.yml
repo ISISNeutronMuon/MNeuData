@@ -37,8 +37,9 @@
       --set gatewayAPI.enabled=true \
       --set gatewayAPI.enableAlpn=true \
       --set gatewayAPI.enableAppProtocol=true \
-      --set routingMode=native \
-      --set autoDirectNodeRoutes=true \
-      --set ipv4NativeRoutingCIDR="10.244.0.0/16"
+      --set l2announcements.enabled=true \
+      --set hubble.enabled=true \
+      --set hubble.relay.enabled=true \
+      --set hubble.ui.enabled=true
   delegate_to: localhost
   run_once: true
