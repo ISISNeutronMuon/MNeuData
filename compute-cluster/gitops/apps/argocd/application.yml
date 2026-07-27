@@ -8,9 +8,9 @@ metadata:
 spec:
   project: infra
   source:
-    repoURL: https://github.com/argoproj/argo-cd
-    path: manifests/cluster-install
-    targetRevision: v3.4.5
+    repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+    path: compute-cluster/gitops/components/argocd
+    targetRevision: compute_cluster
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
