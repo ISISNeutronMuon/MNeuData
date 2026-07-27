@@ -21,7 +21,7 @@ spec:
     tls:
       mode: Terminate
       certificateRefs:
-      - name: isis-compute-tls
+      - name: compute-tls
     allowedRoutes:
       namespaces:
         from: All

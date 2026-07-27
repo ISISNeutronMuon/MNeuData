@@ -8,7 +8,7 @@ spec:
   - name: gateway
     namespace: kube-system
   hostnames:
-  - isis-compute.isis.cclrc.ac.uk
+  - compute.isis.cclrc.ac.uk
   rules:
   - matches:
     - path:
@@ -48,7 +48,7 @@ spec:
   - name: gateway
     namespace: kube-system
   hostnames:
-  - isis-compute.isis.cclrc.ac.uk
+  - compute.isis.cclrc.ac.uk
   rules:
   - matches:
     - path:
