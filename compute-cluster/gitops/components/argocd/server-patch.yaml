@@ -9,6 +9,7 @@ spec:
       - name: argocd-server
         args:
         - /usr/local/bin/argocd-server
+        - --insecure
         - --basehref
         - /argocd
         - --rootpath
