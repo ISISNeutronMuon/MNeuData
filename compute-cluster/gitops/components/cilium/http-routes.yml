@@ -14,6 +14,16 @@ spec:
   rules:
   - matches:
     - path:
+        type: Exact
+        value: /argocd
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        path:
+          replaceFullPath: /argocd/
+        statusCode: 301
+  - matches:
+    - path:
         type: PathPrefix
         value: /argocd
     backendRefs:
@@ -37,6 +47,16 @@ spec:
   hostnames:
   - compute.isis.cclrc.ac.uk
   rules:
+  - matches:
+    - path:
+        type: Exact
+        value: /hubble
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        path:
+          replaceFullPath: /hubble/
+        statusCode: 301
   - matches:
     - path:
         type: PathPrefix
