@@ -15,7 +15,7 @@ metadata:
 spec:
   vaultConnectionRef: default
   method: kubernetes
-  mount: isis-compute-cluster
+  mount: isis-compute-cluster-poc
   allowedNamespaces:
     - "*"
   kubernetes:
