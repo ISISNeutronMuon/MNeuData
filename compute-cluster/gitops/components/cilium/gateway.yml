@@ -21,7 +21,9 @@ spec:
     tls:
       mode: Terminate
       certificateRefs:
-      - name: compute-tls
+      - group: ''
+        kind: Secret
+        name: compute-tls
     allowedRoutes:
       namespaces:
         from: All
