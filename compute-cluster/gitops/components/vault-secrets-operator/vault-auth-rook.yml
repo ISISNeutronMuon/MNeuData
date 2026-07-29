@@ -24,6 +24,7 @@ spec:
     audiences:
       - vault
       - https://kubernetes.default.svc.cluster.local
+      - https://130.246.55.77:6443
 ---
 apiVersion: v1
 kind: ServiceAccount
