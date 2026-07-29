@@ -5,5 +5,5 @@ metadata:
   namespace: rook-ceph
 data:
   data: "a=130.246.53.66:6789,b=130.246.55.15:6789"
-  mapping: ""
+  mapping: "{}"
   maxMonId: "1"
