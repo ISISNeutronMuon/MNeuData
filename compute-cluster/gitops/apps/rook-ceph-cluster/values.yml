@@ -2,7 +2,7 @@ operatorNamespace: rook-ceph
 clusterName: rook-ceph
 cephClusterSpec:
   cephVersion:
-    image: quay.io/ceph/ceph:v19.2.1
+    image: quay.io/ceph/ceph:v20.2.2
   external:
     enable: true
     fsid: 521e4d15-d55f-4044-bbcf-b0968225874a
