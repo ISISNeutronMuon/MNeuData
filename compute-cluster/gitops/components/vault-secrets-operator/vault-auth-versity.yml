@@ -2,7 +2,7 @@
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultConnection
 metadata:
-  namespace: longhorn-system
+  namespace: versitygw-system
   name: default
 spec:
   address: "https://secrets.isis.rl.ac.uk"
@@ -11,7 +11,7 @@ apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultAuth
 metadata:
   name: static-auth
-  namespace: longhorn-system
+  namespace: versitygw-system
 spec:
   vaultConnectionRef: default
   method: kubernetes
@@ -29,14 +29,14 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  namespace: longhorn-system
+  namespace: versitygw-system
   name: vault-op
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: service-account-read
-  namespace: longhorn-system
+  namespace: versitygw-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -44,12 +44,12 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: vault-op
-    namespace: longhorn-system
+    namespace: versitygw-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: service-account-read-longhorn
+  name: service-account-read-versity
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -57,13 +57,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: vault-op
-    namespace: longhorn-system
+    namespace: versitygw-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: service-account-read
-  namespace: longhorn-system
+  namespace: versitygw-system
 rules:
   - apiGroups: [""]
     resources: ["serviceaccounts"]
