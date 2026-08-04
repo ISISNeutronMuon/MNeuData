@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  sources:
+  - repoURL: https://charts.longhorn.io
+    chart: cert-manager
+    targetRevision: v1.12.0
+    helm:
+      valueFiles:
+      - $values/compute-cluster/gitops/apps/longhorn/values.yml
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    ref: values
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    path: compute-cluster/gitops/components/longhorn
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true

@@ -1,0 +1,21 @@
+httproute:
+  enabled: true
+  hostnames:
+    - "compute.isis.cclrc.ac.uk"
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: kube-system
+  pathType: "PathPrefix"
+  path: "/longhorn"
+
+# Uncomment when adding backups
+#defaultBackupStore:
+#  backupTarget: "s3.echo.stfc.ac.uk"
+#  backupTargetCredentialSecret: "longhorn-backup-secret"
+
+# Uncomment when adding metrics
+#metrics:
+#  serviceMonitor:
+#    enabled: true

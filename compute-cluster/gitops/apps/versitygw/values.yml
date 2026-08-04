@@ -1,0 +1,48 @@
+image:
+  repository: ghcr.io/versity/versitygw
+  tag: "v1.2.0"
+
+gateway:
+  backend:
+    type: "posix"
+    args: "/mnt/data"
+
+auth:
+  existingSecret: "versity-s3-root"
+
+httproute:
+  enabled: true
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: kube-system
+  hostnames:
+    - "compute.isis.cclrc.ac.uk"
+  rules:
+    - matches:
+        - path:
+            type: "PathPrefix"
+            value: "/s3"
+
+webui:
+  enabled: true
+  httproute:
+    enabled: true
+    parentRefs:
+      - group: gateway.networking.k8s.io
+        kind: Gateway
+        name: gateway
+        namespace: kube-system
+    hostnames:
+      - "compute.isis.cclrc.ac.uk"
+    rules:
+      - matches:
+          - path:
+              type: "PathPrefix"
+              value: "/versityui"
+
+persistence:
+  enabled: true
+  create: false
+  claimName: s3-backend
