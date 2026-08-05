@@ -1,0 +1,13 @@
+#apiVersion: rabbitmq.com/v1beta1
+#kind: RabbitmqCluster
+#metadata:
+#  name: rabbitmq-cluster
+#spec:
+#  replicas: 3
+#  persistence:
+#    storageClassName: cephfs
+#    storage: 10Gi
+#  rabbitmq:
+#    additionalConfig: |
+#      cluster_partition_handling = pause_minority
+#      vm_memory_high_watermark.relative = 0.4

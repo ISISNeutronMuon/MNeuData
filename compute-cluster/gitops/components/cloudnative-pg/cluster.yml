@@ -1,0 +1,21 @@
+#apiVersion: postgresql.cnpg.io/v1
+#kind: Cluster
+#metadata:
+#  name: postgres-cluster
+#spec:
+#  instances: 3
+#  imageName: ghcr.io/cloudnative-pg/postgresql:17.2
+#  storage:
+#    size: 10Gi
+#    storageClass: cephfs
+#  bootstrap:
+#    initdb:
+#      database: app
+#      owner: app
+#      postInitSQL:
+#        - CREATE DATABASE grafana;
+#        - CREATE USER grafana WITH PASSWORD 'grafana_password';
+#        - GRANT ALL PRIVILEGES ON DATABASE grafana TO grafana;
+#  postgresql:
+#    parameters:
+#      wal_level: logical

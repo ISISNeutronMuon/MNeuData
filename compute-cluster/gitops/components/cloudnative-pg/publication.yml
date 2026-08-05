@@ -1,0 +1,10 @@
+#apiVersion: postgresql.cnpg.io/v1
+#kind: Publication
+#metadata:
+#  name: all-tables-pub
+#spec:
+#  cluster:
+#    name: postgres-cluster
+#  name: all_tables
+#  target:
+#    allTables: true

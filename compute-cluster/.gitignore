@@ -2,6 +2,7 @@ argocd-password.txt
 kubeconfig.yaml
 .vault-pass
 .junie
+ceph.client.admin.keyring
 
 # Talos specific exclusions
 talos/temp/controlplane.yaml
