@@ -1,33 +1,8 @@
 ---
-- name: Check if ArgoCD is already installed
-  shell: helm list -n argocd --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml" -q | grep -q "^argocd$"
-  register: argocd_check
-  failed_when: false
-  changed_when: false
-  delegate_to: localhost
-  run_once: true
-
-- name: Add ArgoCD Helm repo
-  shell: helm repo add argo https://argoproj.github.io/argo-helm
-  delegate_to: localhost
-  run_once: true
-  when: argocd_check.rc != 0
-
-- name: Update Helm repos
-  shell: helm repo update
-  delegate_to: localhost
-  run_once: true
-  when: argocd_check.rc != 0
-
 - name: Install ArgoCD
   shell: |
-    helm upgrade --install argocd argo/argo-cd \
-      --version {{ argocd_version }} \
-      --namespace argocd \
-      --create-namespace \
-      --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml" \
-      -f "{{ role_path }}/argocd-values.yml" \
-      --wait
+    kubectl create namespace argocd --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml"
+    kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.4.5/manifests/install.yaml --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml"
   delegate_to: localhost
   run_once: true
 
@@ -46,6 +21,30 @@
       --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml"
   delegate_to: localhost
   run_once: true
+
+- name: Register MNeuData repository in ArgoCD
+  shell: |
+    kubectl apply --kubeconfig "{{ playbook_dir }}/../kubeconfig.yaml" -f - <<EOF
+    {{ {
+      'apiVersion': 'v1',
+      'kind': 'Secret',
+      'metadata': {
+        'name': 'mneudata-repo',
+        'namespace': 'argocd',
+        'labels': {
+          'argocd.argoproj.io/secret-type': 'repository'
+        }
+      },
+      'stringData': {
+        'type': 'git',
+        'url': 'git@github.com:ISISNeutronMuon/MNeuData.git',
+        'sshPrivateKey': vault_argocd_repo_ssh_key
+      }
+    } | to_nice_yaml }}
+    EOF
+  delegate_to: localhost
+  run_once: true
+  when: vault_argocd_repo_ssh_key is defined
 
 - name: Bootstrap GitOps (App of Apps)
   shell: |
