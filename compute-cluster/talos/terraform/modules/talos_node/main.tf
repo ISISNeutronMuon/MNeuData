@@ -26,6 +26,7 @@ resource "proxmox_virtual_environment_vm" "this" {
   }
 
   initialization {
+    datastore_id = "nvme-storage-${var.pve_node}"
     ip_config {
       ipv4 {
         address = "${var.ip}/22"
@@ -35,16 +36,16 @@ resource "proxmox_virtual_environment_vm" "this" {
   }
 
   disk {
-    datastore_id = var.datastore_id
+    datastore_id = "nvme-storage-${var.pve_node}"
     file_format  = "raw"
     interface    = "scsi0"
-    size         = 32
+    size         = var.disk_size
     discard      = "on"
     ssd          = true
   }
 
   efi_disk {
-    datastore_id = var.datastore_id
+    datastore_id = "nvme-storage-${var.pve_node}"
   }
 
   boot_order = ["scsi0", "ide3"]

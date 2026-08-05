@@ -53,9 +53,9 @@ variable "proxmox_password" {
 }
 
 variable "iso_url" {
-  description = "The URL for the Talos ISO"
+  description = "The URL for the Talos ISO, has siderolabs/qemu-guest-agent, siderolabs/iscsi-tools, and siderolabs/util-linux-tools extensions installed."
   type        = string
-  default     = "https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.13.5/nocloud-amd64.iso"
+  default     = "https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.13.8/nocloud-amd64.iso"
 }
 
 variable "machine_type" {

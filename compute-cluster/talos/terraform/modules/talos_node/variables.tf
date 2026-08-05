@@ -46,13 +46,13 @@ variable "machine_configuration_input" {
   type = string
 }
 
-variable "datastore_id" {
-  type    = string
-  default = "local-lvm"
-}
-
 variable "machine_type" {
   description = "The machine type for the VM"
   type        = string
   default     = "pc-q35-10.1"
+}
+
+variable "disk_size" {
+  type    = number
+  default = 32
 }

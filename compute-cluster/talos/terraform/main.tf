@@ -14,6 +14,19 @@ resource "proxmox_virtual_environment_file" "talos_iso" {
   }
 }
 
+resource "proxmox_node_disk_zfs" "nvme_storage" {
+  for_each = toset(distinct([for node in concat(var.control_plane_nodes, var.worker_nodes) : node.pve_node]))
+
+  node_name   = each.key
+  name        = "nvme-storage-${each.key}"
+  devices     = ["/dev/nvme0n1", "/dev/nvme1n1"]
+  raidlevel   = "mirror"
+
+  add_storage = true
+  cleanup_config = true
+  cleanup_disks  = true
+}
+
 ################################################################################
 # Node Modules (VM + Talos Config)
 ################################################################################
@@ -31,6 +44,8 @@ module "control_plane_first" {
   machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
   install_disk                = var.install_disk
   machine_type                = var.machine_type
+
+  depends_on = [proxmox_node_disk_zfs.nvme_storage]
 }
 
 module "control_plane_others" {
@@ -48,7 +63,7 @@ module "control_plane_others" {
   install_disk                = var.install_disk
   machine_type                = var.machine_type
 
-  depends_on = [talos_machine_bootstrap.this]
+  depends_on = [talos_machine_bootstrap.this, proxmox_node_disk_zfs.nvme_storage]
 }
 
 module "worker" {
@@ -67,8 +82,9 @@ module "worker" {
   machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
   install_disk                = var.install_disk
   machine_type                = var.machine_type
+  disk_size                   = 1024
 
-  depends_on = [module.control_plane_others]
+  depends_on = [module.control_plane_others, proxmox_node_disk_zfs.nvme_storage]
 }
 ################################################################################
 
