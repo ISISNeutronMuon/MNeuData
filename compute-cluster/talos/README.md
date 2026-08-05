@@ -15,13 +15,20 @@ This project provides a complete automated workflow for deploying a high-availab
 - [Talosctl](https://www.talos.dev/latest/introduction/getting-started/#installing-talosctl)
 - [Kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [Helm](https://helm.sh/docs/intro/install/)
-- Proxmox VE 8.x environment with API access.
+- Proxmox VE 9.x environment with API access.
 
 ---
 
 ## 1. Infrastructure Provisioning (Terraform)
 
 The Terraform configuration follows a sequential deployment strategy to ensure stable cluster formation.
+
+### Update talos version
+
+Either manually grab the correct schematic based on current requirements or run the talos-schametic.sh script.
+```bash
+talos-schematic.sh --add ./variables.tf
+```
 
 ### Configuration
 1. **Secrets**: Create `terraform/secrets.auto.tfvars`:
@@ -35,6 +42,23 @@ The Terraform configuration follows a sequential deployment strategy to ensure s
 cd terraform
 terraform init
 terraform apply
+```
+
+If you get an error about /dev/nvme0n1 or similar being already in use, go into the proxmox UI and for each node, go to the disks, and wipe the nvme disks that had ZSF partitions on them. Initially this should be both /dev/nvme0n1 and /dev/nvme0n1.
+
+Example of error:
+```
+│ Error: Unable to Create ZFS pool "nvme-storage-pve-node1"
+│ 
+│   with proxmox_node_disk_zfs.nvme_storage["pve-node1"],
+│   on main.tf line 17, in resource "proxmox_node_disk_zfs" "nvme_storage":
+│   17: resource "proxmox_node_disk_zfs" "nvme_storage" {
+│ 
+│ All attempts fail:
+│ #1: error creating ZFS pool: received an HTTP 500 response - Reason: device '/dev/nvme0n1' is already in use
+│ #2: error creating ZFS pool: received an HTTP 500 response - Reason: device '/dev/nvme0n1' is already in use
+│ #3: error creating ZFS pool: received an HTTP 500 response - Reason: device '/dev/nvme0n1' is already in use
+
 ```
 
 ### Extract Configuration
@@ -67,19 +91,24 @@ Once the Talos cluster is bootstrapped, Ansible is used to install Cilium as the
 Run the deployment playbook from the `ansible` directory:
 ```bash
 cd ../ansible
+rm argocd-password.txt
 ansible-playbook playbooks/deploy.yml
 ```
 
 ---
 
-## 3. Verification & GitOps
+## 3. Restart Cilium
 
-### Cilium
-Verify that Cilium is running and has replaced kube-proxy:
+As part of deploying Cilium, it's likely that the gateway will not set up correctly after the application is adopted by argocd. So restart it.
 ```bash
-export KUBECONFIG=$(pwd)/kubeconfig.yaml
-kubectl -n kube-system get pods -l k8s-app=cilium
+kubectl rollout restart ds cilium -n kube-system
+kubectl rollout restart ds cilium-envoy -n kube-system
+kubectl rollout restart deployment cilium-operator -n kube-system
 ```
+
+---
+
+## 4. Verification & GitOps
 
 ### ArgoCD
 ArgoCD is bootstrapped using an "App of Apps" pattern pointing to the `MNeuData` repository.
@@ -93,7 +122,7 @@ ArgoCD is bootstrapped using an "App of Apps" pattern pointing to the `MNeuData`
    kubectl -n argocd port-forward svc/argocd-server 8080:443
    ```
 3. **Check Applications**:
-   The `app-of-apps` application should be visible in the ArgoCD UI, managing all other cluster components.
+   The `app-of-apps` application should be visible in the ArgoCD UI, managing all other cluster components. After the argocd app is adopted by itself as an argocd application the base path will become /argocd, so https://localhost:8080/argocd will be the url.
 
 ## Maintenance
 
