@@ -26,9 +26,42 @@ _TYPE_CONVERTERS = {
 }
 
 
-def _tag_localname(tag: str) -> str:
-    """Return the local (namespace-stripped) name of an XML tag."""
-    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
+def find_nexus_file(
+    beamline_dir: Path, cycle_suffix: str, instrument: str, run_number: int
+) -> Path:
+    """Locate the ``.nxs`` file for a run within its cycle data directory.
+
+    The cycle directory (``{beamline_dir}/Instrument/data/cycle_{suffix}``)
+    can contain thousands of files, so rather than globbing this constructs the
+    expected filename and checks for its existence directly.
+
+    The file prefix and zero-padding are resolved from Mantid's
+    ``Facilities.xml`` (see :mod:`isis_archive.facilities`), which encodes the
+    non-standard, run-number-dependent mapping from the NDX suffix
+    (``instrument``) to the on-disk filename. ``facility`` defaults to the
+    bundled ISIS facility definition.
+    """
+    facility = facility_info()
+
+    cycle_dir = beamline_dir / "Instrument" / "data" / f"cycle_{cycle_suffix}"
+
+    try:
+        filename = facility.nexus_filename(instrument, run_number)
+    except KeyError:
+        raise FileNotFoundError(
+            f"Instrument {instrument!r} is not defined in facility "
+            f"{facility.name!r}; cannot determine NeXus filename for run "
+            f"{run_number}"
+        )
+    candidate = cycle_dir / filename
+    if candidate.is_file():
+        logger.debug(f"Matched run {run_number} to {candidate}")
+        return candidate
+
+    raise FileNotFoundError(
+        f"No NeXus file found in {cycle_dir} for {instrument} run {run_number} "
+        f"(expected {filename})"
+    )
 
 
 def parse_journal(journal_path: Path) -> Iterator[JournalEntry]:
@@ -96,13 +129,12 @@ def summarise_run(
     """Summarise a run based on the given journal entry, includes reading additional information from the Nexus file"""
     nexus_file = None
     try:
-        raise FileNotFoundError("Not found")
-        # nexus_file = find_nexus_file(
-        #     journal.beamline_dir,
-        #     journal.cycle_suffix,
-        #     journal.beamline,
-        #     journal_entry.run_number,
-        # )
+        nexus_file = find_nexus_file(
+            journal.beamline_dir,
+            journal.cycle_suffix,
+            journal.beamline,
+            journal_entry.run_number,
+        )
         # nexus_summary = read_nexus(nexus_file)
     except FileNotFoundError:
         nexus_summary = NexusIOError(
@@ -137,3 +169,8 @@ def summarise_run(
         nexus_summary,
         icp_error_count,
     )
+
+
+def _tag_localname(tag: str) -> str:
+    """Return the local (namespace-stripped) name of an XML tag."""
+    return tag.rsplit("}", 1)[-1] if "}" in tag else tag

@@ -198,6 +198,7 @@ def main(
         on_cycle_complete=partial(write_cycle_files, output=output_dir),
         should_skip_cycle=should_skip_cycle_cb,
         max_workers=max_workers,
+        limit_per_worker=limit_per_worker,
     )
 
     click.echo(f"\nParsed {len(summaries)} run(s).", err=True)
