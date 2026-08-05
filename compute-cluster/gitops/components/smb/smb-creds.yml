@@ -1,0 +1,16 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: smb-creds
+  namespace: kube-system
+spec:
+  type: kv-v2
+  refreshAfter: 30s
+  vaultAuthRef: static-auth
+
+  mount: isis-compute-cluster
+  path: mneudatacc-smb
+  destination:
+    name: smb-creds
+    overwrite: true
+    create: true

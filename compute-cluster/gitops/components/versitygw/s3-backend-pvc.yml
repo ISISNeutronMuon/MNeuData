@@ -5,7 +5,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: san-smb
   resources:
     requests:
-      storage: 20Gi
+      storage: 4000Gi
+  volumeName: s3-pv-smb
+  storageClassName: ""
