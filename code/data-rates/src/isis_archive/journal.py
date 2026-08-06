@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import cast
 
 from .discover import DiscoveredJournal
+from .facility import find_nexus_file
 from .icp_debug import count_icp_debug_failures, icp_debug_path
 from .models import JournalEntry, NexusIOError, RunSummary
 
@@ -24,44 +25,6 @@ _TYPE_CONVERTERS = {
     "float": float,
     "str": str,
 }
-
-
-def find_nexus_file(
-    beamline_dir: Path, cycle_suffix: str, instrument: str, run_number: int
-) -> Path:
-    """Locate the ``.nxs`` file for a run within its cycle data directory.
-
-    The cycle directory (``{beamline_dir}/Instrument/data/cycle_{suffix}``)
-    can contain thousands of files, so rather than globbing this constructs the
-    expected filename and checks for its existence directly.
-
-    The file prefix and zero-padding are resolved from Mantid's
-    ``Facilities.xml`` (see :mod:`isis_archive.facilities`), which encodes the
-    non-standard, run-number-dependent mapping from the NDX suffix
-    (``instrument``) to the on-disk filename. ``facility`` defaults to the
-    bundled ISIS facility definition.
-    """
-    facility = facility_info()
-
-    cycle_dir = beamline_dir / "Instrument" / "data" / f"cycle_{cycle_suffix}"
-
-    try:
-        filename = facility.nexus_filename(instrument, run_number)
-    except KeyError:
-        raise FileNotFoundError(
-            f"Instrument {instrument!r} is not defined in facility "
-            f"{facility.name!r}; cannot determine NeXus filename for run "
-            f"{run_number}"
-        )
-    candidate = cycle_dir / filename
-    if candidate.is_file():
-        logger.debug(f"Matched run {run_number} to {candidate}")
-        return candidate
-
-    raise FileNotFoundError(
-        f"No NeXus file found in {cycle_dir} for {instrument} run {run_number} "
-        f"(expected {filename})"
-    )
 
 
 def parse_journal(journal_path: Path) -> Iterator[JournalEntry]:

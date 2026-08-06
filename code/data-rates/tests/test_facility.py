@@ -7,16 +7,24 @@ import pytest
 from isis_archive import facility
 from isis_archive.facility import (
     Beamline,
-    ZeroPaddingRule,
-    _parse_facilities_xml,
+    FileNamingRule,
     beamlines,
-    nexus_filename,
 )
 
 FAKE_FACILITIES_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <facilities>
   <facility name="ISIS" zeropadding="5">
-    <instrument name="BEAMLINE1" shortname="BM1"/>
+    <!-- Default facility zero padding -->
+    <instrument name="BEAMLINEA"/>
+    <!-- All runs use same padding -->
+    <instrument name="BEAMLINEB" shortname="BMB">
+    <zeropadding size="8"/>
+    </instrument>
+    <!--  -->
+    <instrument name="BEAMLINEC" shortname="BMC">
+      <zeropadding startRunNumber="10" prefix="BEAMLINEC"/>
+      <zeropadding startRunNumber="20" size="8" prefix="BEAMLINEC"/>
+    </instrument>
   </facility>
 </facilities>
 """
@@ -31,46 +39,26 @@ def clear_beamlines_cache():
 
 
 class TestBeamline:
-    def test_extension_defaults_to_nxs(self):
-        beamline = Beamline("BEAMLINE1", (ZeroPaddingRule(0, 5),))
-        assert beamline.extension == ".nxs"
-
     def test_nexus_filename_zero_pads_run_number(self):
-        beamline = Beamline("BEAMLINE1", (ZeroPaddingRule(0, 5),))
-        assert beamline.nexus_filename(42) == "BEAMLINE100042.nxs"
-
-    def test_nexus_filename_uses_custom_extension(self):
-        beamline = Beamline("BEAMLINE1", (ZeroPaddingRule(0, 5),), extension=".raw")
-        assert beamline.nexus_filename(42) == "BEAMLINE100042.raw"
+        beamline = Beamline("BEAMLINEA", [FileNamingRule(0, "BEAMLINEA", 5)])
+        assert beamline.nexus_filename(42) == "BEAMLINEA00042.nxs"
 
     def test_nexus_filename_run_number_longer_than_padding(self):
-        beamline = Beamline("BEAMLINE1", (ZeroPaddingRule(0, 5),))
-        assert beamline.nexus_filename(123456) == "BEAMLINE1123456.nxs"
+        beamline = Beamline("BEAMLINEA", [FileNamingRule(0, "BEAMLINEA", 5)])
+        assert beamline.nexus_filename(123456) == "BEAMLINEA123456.nxs"
 
     def test_nexus_filename_shortname(self):
-        beamline = Beamline("BEAMLINE1", (ZeroPaddingRule(0, 5, "BM1"),))
-        assert beamline.nexus_filename(123456) == "BM1123456.nxs"
+        beamline = Beamline("BEAMLINEA", [FileNamingRule(0, "BMA", 5)])
+        assert beamline.nexus_filename(123456) == "BMA123456.nxs"
 
-
-class TestParseFacilitiesXml:
-    def test_returns_expected_beamlines(self):
-        result = _parse_facilities_xml(FAKE_FACILITIES_XML, facility_name="ISIS")
-        assert "BM1" in result
-        assert isinstance(result["BM1"], Beamline)
-
-    # def test_uses_facility_zeropadding(self):
-    #     result = _parse_facilities_xml(FAKE_FACILITIES_XML, facility_name="ISIS")
-    #     (rule,) = result["HRPD"].padding_rules
-    #     assert rule.size == 5
-
-    # def test_selects_correct_facility(self):
-    #     result = _parse_facilities_xml(FAKE_FACILITIES_XML, facility_name="SNS")
-    #     (rule,) = result["HRPD"].padding_rules
-    #     assert rule.size == 6
-
-    def test_unknown_facility_raises(self):
-        with pytest.raises(ValueError, match="NOPE"):
-            _parse_facilities_xml(FAKE_FACILITIES_XML, facility_name="NOPE")
+    def test_nexus_filename_multiple_naming_rules(self):
+        beamline = Beamline(
+            "BEAMLINEA",
+            [FileNamingRule(0, "BMA", 5), FileNamingRule(12345, "BMA", 8)],
+        )
+        assert beamline.nexus_filename(1) == "BMA00001.nxs"
+        assert beamline.nexus_filename(1234) == "BMA01234.nxs"
+        assert beamline.nexus_filename(12345) == "BMA00012345.nxs"
 
 
 @pytest.mark.usefixtures("clear_beamlines_cache")
@@ -82,7 +70,25 @@ class TestBeamlines:
             result = beamlines()
 
         mock_download.assert_called_once_with()
-        assert "HRPD" in result
+        assert "BEAMLINEA" in result
+        assert len(result["BEAMLINEA"].file_naming_rules) == 1
+        assert result["BEAMLINEA"].file_naming_rules[0] == FileNamingRule(
+            0, "BEAMLINEA", 5
+        )
+
+        assert "BEAMLINEB" in result
+        assert len(result["BEAMLINEB"].file_naming_rules) == 1
+        assert result["BEAMLINEB"].file_naming_rules[0] == FileNamingRule(0, "BMB", 8)
+
+        assert "BEAMLINEC" in result
+        assert len(result["BEAMLINEC"].file_naming_rules) == 3
+        assert result["BEAMLINEC"].file_naming_rules[0] == FileNamingRule(0, "BMC", 5)
+        assert result["BEAMLINEC"].file_naming_rules[1] == FileNamingRule(
+            10, "BEAMLINEC", 5
+        )
+        assert result["BEAMLINEC"].file_naming_rules[2] == FileNamingRule(
+            20, "BEAMLINEC", 8
+        )
 
     def test_returns_beamline_instances(self):
         with patch.object(
@@ -101,12 +107,3 @@ class TestBeamlines:
 
         assert first is second
         mock_download.assert_called_once_with()
-
-
-@pytest.mark.usefixtures("clear_beamlines_cache")
-class TestNexusFilename:
-    def test_builds_filename_for_known_beamline(self):
-        with patch.object(
-            facility, "_download_facilities_xml", return_value=FAKE_FACILITIES_XML
-        ):
-            assert nexus_filename("HRPD", 42) == "HRP00042.nxs"
