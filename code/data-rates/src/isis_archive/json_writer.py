@@ -70,8 +70,10 @@ def _to_record(summary: RunSummary) -> dict:
         "beamline": summary.beamline,
         "cycle": summary.cycle,
         # journal fields
+        "journal_filename": str(summary.journal_file),
         **{column: getattr(journal, column) for column in JOURNAL_FIELD_ORDER},
         # nexus fields
+        "nexus_filename": str(summary.nexus_file),
         **{column: nexus_field_or_none(column) for column in NEXUS_FIELD_ORDER},
         # icp_debug
         **{column: getattr(summary, column) for column in ICP_FIELD_ORDER},

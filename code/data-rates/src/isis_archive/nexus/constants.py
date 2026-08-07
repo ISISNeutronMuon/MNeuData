@@ -1,0 +1,3 @@
+NXDATA_CLASS = "NXdata"
+NXLOG_CLASS = "NXlog"
+NXMONITOR_CLASS = "NXmonitor"

@@ -11,6 +11,7 @@ from .discover import DiscoveredJournal
 from .facility import find_nexus_file
 from .icp_debug import count_icp_debug_failures, icp_debug_path
 from .models import JournalEntry, NexusIOError, RunSummary
+from .nexus import summarise_nexus
 
 logger = logging.getLogger("isis_archive")
 
@@ -98,12 +99,12 @@ def summarise_run(
             journal.beamline,
             journal_entry.run_number,
         )
-        # nexus_summary = read_nexus(nexus_file)
+        nexus_summary = summarise_nexus(nexus_file)
     except FileNotFoundError:
         nexus_summary = NexusIOError(
             f"NeXus file missing for {journal.beamline} run number {journal_entry.run_number}"
         )
-    except Exception as exc:
+    except RuntimeError as exc:
         logger.exception(f"{nexus_file}")
         nexus_summary = NexusIOError(f"{nexus_file}: {exc}")
 
@@ -117,7 +118,7 @@ def summarise_run(
                 f"No ICP debug file for {journal.beamline} run "
                 f"{journal_entry.run_number}"
             )
-        except Exception:
+        except RuntimeError:
             logger.exception(
                 f"Failed to read ICP debug file for {journal.beamline} run "
                 f"{journal_entry.run_number}"

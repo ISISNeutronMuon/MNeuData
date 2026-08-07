@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 import pytest
 
-from isis_archive.nexus.hdf5 import NEXUS_ROOT_ENTRY, summarise_nexus
+from isis_archive.nexus.hdf5 import RAW_DATA_1, summarise_nexus
 
 # Expected values, derived from the data written by the ``nexus_file`` fixture.
 EXPECTED_DETECTOR_COUNTS = 3_000_000
@@ -37,7 +37,7 @@ def nexus_file_hdf5(tmp_path: Path) -> Path:
     path = tmp_path / "TEST00001.nxs"
 
     with h5py.File(str(path), "w") as fp:
-        root = fp.create_group(NEXUS_ROOT_ENTRY)
+        root = fp.create_group(RAW_DATA_1)
         root.attrs["NX_class"] = "NXentry"
 
         # Histogram data
@@ -70,14 +70,14 @@ def nexus_file_hdf5(tmp_path: Path) -> Path:
         for block_name, n_times in (("temperature", 3), ("field", 4)):
             block = selog.create_group(block_name)
             value_log = block.create_group("value_log")
-            value_log.create_dataset("time", data=np.arange(n_times, dtype=np.float64))
+            value_log.create_dataset("time", data=np.arange(n_times, dtype=np.float32))
 
         # framelog: each block has a time array directly.
         framelog = root.create_group("framelog")
         framelog.attrs["NX_class"] = "NXcollection"
         for block_name, n_times in (("proton_charge", 5), ("period", 6)):
             block = framelog.create_group(block_name)
-            block.create_dataset("time", data=np.arange(n_times, dtype=np.float64))
+            block.create_dataset("time", data=np.arange(n_times, dtype=np.float32))
 
     return path
 
