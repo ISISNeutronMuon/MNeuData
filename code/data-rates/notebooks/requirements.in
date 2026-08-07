@@ -1,0 +1,5 @@
+marimo
+python-dotenv
+duckdb
+sqlglot
+polars[pyarrow]
