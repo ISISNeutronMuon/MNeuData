@@ -1,0 +1,35 @@
+#---
+#apiVersion: argoproj.io/v1alpha1
+#kind: Application
+#metadata:
+#  name: mimir
+#  namespace: argocd
+##  annotations:
+##    argocd.argoproj.io/sync-wave: "0"
+#  finalizers:
+#    - resources-finalizer.argocd.argoproj.io
+#spec:
+#  project: infra
+#  sources:
+#  - repoURL: https://grafana.github.io/helm-charts
+#    targetRevision: 5.8.0
+#    chart:
+#    helm:
+#      valueFiles:
+#      - $values/compute-cluster/gitops/apps/mimir/values.yml
+#  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+#    targetRevision: compute_cluster
+#    ref: values
+#  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+#    targetRevision: compute_cluster
+#    path: compute-cluster/gitops/components/mimir
+#  destination:
+#    namespace: mimir
+#    server: https://kubernetes.default.svc
+#  syncPolicy:
+#    automated:
+#      prune: true
+#      selfHeal: true
+#    syncOptions:
+#      - ServerSideApply=true
+#      - CreateNamespace=true

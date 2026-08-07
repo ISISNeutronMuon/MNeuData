@@ -1,0 +1,16 @@
+#apiVersion: secrets.hashicorp.com/v1beta1
+#kind: VaultStaticSecret
+#metadata:
+#  name: loki-auth
+#  namespace: loki
+#spec:
+#  type: kv-v2
+#  refreshAfter: 30s
+#  vaultAuthRef: static-auth
+#
+#  mount: isis-compute-cluster
+#  path: loki/auth
+#  destination:
+#    name: loki-auth
+#    overwrite: true
+#    create: true

@@ -4,24 +4,18 @@ kind: PersistentVolume
 metadata:
   annotations:
     pv.kubernetes.io/provisioned-by: smb.csi.k8s.io
-  name: s3-pv-smb
+  name: s3-backend-pv
 spec:
   capacity:
     storage: 4000Gi
   accessModes:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
-  mountOptions:
-    - vers=2.1
-    - noserverino
-    - _netdev
   csi:
     driver: smb.csi.k8s.io
-    # volumeHandle format: {smb-server-address}#{sub-dir-name}#{share-name}
-    # make sure this value is unique for every share in the cluster
     volumeHandle: s3-backend
     volumeAttributes:
-      source: "//mneudatacc.isis.cclrc.ac.uk/mneudatacc/s3"
+      source: "//ISIS.cclrc.ac.uk/Shares/MNeudataCC/s3-backend"
     nodeStageSecretRef:
       name: smb-creds
       namespace: kube-system

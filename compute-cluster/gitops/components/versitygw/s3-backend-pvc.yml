@@ -8,5 +8,5 @@ spec:
   resources:
     requests:
       storage: 4000Gi
-  volumeName: s3-pv-smb
+  volumeName: s3-backend-pv
   storageClassName: ""

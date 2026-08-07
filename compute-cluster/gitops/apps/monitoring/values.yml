@@ -1,0 +1,30 @@
+#cluster:
+#  name: k3s-ubuntu
+#
+## Deploy components
+#loki:
+#  enabled: true
+#  persistence:
+#    enabled: false # Use S3
+#prometheus:
+#  enabled: true
+#  persistence:
+#    enabled: false # Use S3 (via Mimir if applicable, or just keep it simple)
+#tempo:
+#  enabled: true
+#
+#grafana:
+#  enabled: true
+#  database:
+#    type: postgres
+#    host: postgres-cluster-rw.postgres-system.svc.cluster.local:5432
+#    name: grafana
+#    user: grafana
+#    password: grafana_password
+#
+## Long-term storage configuration
+## This is a simplified view; actual k8s-monitoring values structure may vary
+## depending on version, but the intent is to point to Rook S3.
+#extraConfig: |
+#  # Custom configuration for S3 storage
+#  # Loki, Mimir, Tempo settings would go here or in their respective sub-charts
