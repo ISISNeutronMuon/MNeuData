@@ -88,9 +88,8 @@ def collect_summaries(
 # ---------------------------------------------------------------------------
 
 
-def _should_skip_cycle(output_dir: Path, beamline: str, cycle_suffix: str) -> bool:
-    json_path = output_dir / json_filename(beamline, cycle_suffix)
-    return json_path.exists()
+def _should_skip_cycle(beamline: str, cycle_suffix: str, output_dir: Path) -> bool:
+    return not (output_dir / json_filename(beamline, cycle_suffix)).exists()
 
 
 def _validate_cycle_pattern(
@@ -188,8 +187,9 @@ def main(
     )
 
     beamlines = [item.upper() for item in beamline]
+    output_dir = output_dir.resolve()
     should_skip_cycle_cb = (
-        partial(_should_skip_cycle, output_dir=output_dir) if force else None
+        partial(_should_skip_cycle, output_dir=output_dir) if not force else None
     )
     summaries = collect_summaries(
         root,
