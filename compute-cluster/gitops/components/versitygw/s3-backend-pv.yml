@@ -13,10 +13,10 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   mountOptions:
 #    - sec=ntlmssp   # Try ntlmssp or ntlmv2 to resolve error 126
-    - vers=2.1      # Enforce SMB 3.0 (or 2.1 depending on host support)
+    - vers=3.0      # Enforce SMB 3.0 (or 2.1 depending on host support)
   csi:
     driver: smb.csi.k8s.io
-    volumeHandle: s3-backend
+    volumeHandle: s3-backend-1
     volumeAttributes:
       source: "//ISIS.cclrc.ac.uk/Shares"
       subDir: "MNeudataCC/s3-backend"
