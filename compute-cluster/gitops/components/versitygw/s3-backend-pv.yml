@@ -15,8 +15,8 @@ spec:
     driver: smb.csi.k8s.io
     volumeHandle: s3-backend
     volumeAttributes:
-      source: "//ISIS.cclrc.ac.uk/Shares/MNeudataCC"
-      subDir: "s3-backend"
+      source: "//ISIS.cclrc.ac.uk/Shares"
+      subDir: "MNeudataCC/s3-backend"
     nodeStageSecretRef:
       name: smb-creds
       namespace: kube-system
