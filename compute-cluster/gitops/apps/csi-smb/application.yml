@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: csi-smb-prod
+  name: csi-smb
   namespace: argocd
   finalizers:
   - resources-finalizer.argocd.argoproj.io
