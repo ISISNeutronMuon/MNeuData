@@ -26,7 +26,8 @@ def _add_class_group(
 ) -> h5py.Group:
     """Create ``name`` under ``parent`` tagged as ``nx_class`` with a dataset."""
     group = parent.create_group(name)
-    group.attrs["NX_class"] = nx_class
+    ascii_type = h5py.string_dtype("ascii", len(nx_class))
+    group.attrs["NX_class"] = np.array(nx_class.encode("latin-1"), dtype=ascii_type)
     group.create_dataset(dataset_name, data=values)
     return group
 

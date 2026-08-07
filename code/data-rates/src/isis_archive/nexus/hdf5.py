@@ -69,7 +69,9 @@ def _read_total_counts(entry: h5py.Group, nx_class: str, dataset_name: str) -> i
     entry:
         A group that is the parent of entries of ``nx_class``.
     """
-    class_groups = filter(lambda x: x.attrs.get("NX_class") == nx_class, entry.values())
+    class_groups = filter(
+        lambda x: x.attrs.get("NX_class") == nx_class.encode(), entry.values()
+    )
     return int(sum([np.array(grp[dataset_name]).sum() for grp in class_groups]))
 
 
