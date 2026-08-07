@@ -9,7 +9,7 @@ spec:
   vaultAuthRef: static-auth
 
   mount: isis-compute-cluster
-  path: mneudatacc-smb
+  path: smb-creds
   destination:
     name: smb-creds
     overwrite: true
