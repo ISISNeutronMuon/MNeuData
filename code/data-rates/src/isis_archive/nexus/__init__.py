@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from ..models import NexusSummary
+from .hdf4 import summarise_nexus as summarise_nexus_hdf4
 from .hdf5 import summarise_nexus as summarise_nexus_hdf5
 
 # File-format magic bytes.
@@ -26,8 +27,6 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
         return summarise_nexus_hdf5(nexus_path)
 
     if magic.startswith(HDF4_MAGIC):
-        raise NotImplementedError(
-            f"HDF4 NeXus files are not yet supported: {nexus_path}"
-        )
+        return summarise_nexus_hdf4(nexus_path)
 
     raise ValueError(f"Unrecognised NeXus file format (bad magic bytes): {nexus_path}")

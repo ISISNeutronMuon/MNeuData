@@ -1,5 +1,3 @@
-"""NeXus (HDF5) file access and discovery for ISIS run summaries."""
-
 from __future__ import annotations
 
 import logging
