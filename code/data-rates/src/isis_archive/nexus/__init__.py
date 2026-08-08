@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ..models import NexusSummary
-from .hdf5 import summarise_nexus as summarise_nexus_hdf5  # noqa: E402
+from .hdf5 import summarise_nexus as summarise_nexus_hdf5
 
 # File-format magic bytes.
 HDF5_MAGIC = b"\x89HDF\r\n\x1a\n"  # first 8 bytes of any HDF5 file
