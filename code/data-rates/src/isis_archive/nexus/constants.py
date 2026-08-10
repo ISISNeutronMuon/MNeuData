@@ -1,3 +1,4 @@
 NXDATA_CLASS = "NXdata"
+NXENTRY_CLASS = "NXentry"
 NXLOG_CLASS = "NXlog"
 NXMONITOR_CLASS = "NXmonitor"

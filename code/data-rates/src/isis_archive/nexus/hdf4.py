@@ -11,7 +11,7 @@ from pyhdf.error import HDF4Error
 from pyhdf.VS import HC
 
 from ..models import NexusSummary
-from .constants import NXDATA_CLASS
+from .constants import NXDATA_CLASS, NXLOG_CLASS
 
 logger = logging.getLogger("hdf4")
 
@@ -35,13 +35,17 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
     sd_handle = pyhdf.SD.SD(filename)
     vg_handle = hdf.vgstart()
     try:
+        selog_entries_count, total_selog_time_points = _summarise_selogs(
+            vg_handle, sd_handle
+        )
+        framelog_entries_count, total_framelog_time_points = 0, 0
         return NexusSummary(
             _read_total_detector_counts(vg_handle, sd_handle) / 1_000_000,
-            0.0,
-            0,
-            0,
-            0,
-            0,
+            0.0,  # Muons don't have monitors
+            selog_entries_count,
+            total_selog_time_points,
+            framelog_entries_count,
+            total_framelog_time_points,
         )
     finally:
         vg_handle.end()
@@ -54,6 +58,7 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
 
 
 def _read_total_detector_counts(vg_handle: pyhdf.V.V, sd_handle: pyhdf.SD.SD) -> int:
+    """Find the detector counts dataset and return the total counts"""
     nxdata_ref = _top_level_vgroup(vg_handle, NXDATA_CLASS)
     ref_handle = vg_handle.attach(nxdata_ref)
     try:
@@ -62,11 +67,39 @@ def _read_total_detector_counts(vg_handle: pyhdf.V.V, sd_handle: pyhdf.SD.SD) ->
             if tag == HC.DFTAG_NDG:
                 sds = sd_handle.select(sd_handle.reftoindex(ref))
                 if sds.info()[0] == COUNTS:
-                    total_counts = sds.get().sum()
+                    total_counts = int(sds.get().sum())
                     sds.endaccess()
                     return total_counts
     finally:
         ref_handle.detach()
+
+    raise ValueError(f"No dataset {COUNTS} found inside {NXDATA_CLASS}.")
+
+
+def _summarise_selogs(vg_handle: pyhdf.V.V, sd_handle: pyhdf.SD.SD) -> tuple[int, int]:
+    """Count the number of logs and log timestamps"""
+    nxlog_count, nxlog_time_points_count = 0, 0
+    ref = -1
+    while True:
+        try:
+            ref = vg_handle.getid(ref)
+        except HDF4Error:
+            break
+
+        ref_handle = vg_handle.attach(ref)
+        try:
+            if ref_handle._class == NXLOG_CLASS:
+                nxlog_count += 1
+                tag_refs = ref_handle.tagrefs()
+                for tag, tag_ref in tag_refs:
+                    if tag == HC.DFTAG_NDG:
+                        sds = sd_handle.select(sd_handle.reftoindex(tag_ref))
+                        nxlog_time_points_count += sds.get().shape[0]
+                        sds.endaccess()
+        finally:
+            ref_handle.detach()
+
+    return nxlog_count, nxlog_time_points_count
 
 
 def _top_level_vgroup(vg_handle: pyhdf.V.V, nx_class: str) -> int:
