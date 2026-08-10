@@ -13,7 +13,29 @@ def _():
     dotenv.load_dotenv()
 
     RUN_SUMMARY_JSON_DIR = os.environ["RUN_SUMMARY_JSON_DIR"]
+    print(f"Loading run summaries from '{RUN_SUMMARY_JSON_DIR}'")
     return RUN_SUMMARY_JSON_DIR, mo
+
+
+@app.cell
+def _(RUN_SUMMARY_JSON_DIR, mo):
+    _df = mo.sql(
+        f"""
+        create or replace table run_summary AS (
+            SELECT
+                *
+            FROM
+                read_json('{RUN_SUMMARY_JSON_DIR}/HRPD*.json')
+            WHERE
+                duration > 0.0
+                AND good_frames > 0
+                AND icp_error_count = 0
+                AND total_mevents >= (total_detector_mevents + total_monitor_mevents)
+        );
+        -- select * from run_summary;
+        """
+    )
+    return
 
 
 @app.cell
@@ -43,226 +65,60 @@ def _():
     return ev44_header_bits, ev44_per_event_bits
 
 
-@app.cell(hide_code=True)
-def _(RUN_SUMMARY_JSON_DIR, mo):
+@app.cell
+def _(ev44_header_bits, ev44_per_event_bits, mo, run_summary):
     _df = mo.sql(
         f"""
-        CREATE OR REPLACE TABLE run_summary AS (
-            SELECT
-                *
-            FROM
-                read_json('{RUN_SUMMARY_JSON_DIR}')
-        );
-        select * from run_summary;
-        """
-    )
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _(mo):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE nexus_summary AS (
-            SELECT
-                beamline,
-                run_number,
-                total_detector_mevents,
-                total_monitor_mevents
-            FROM
-                read_csv('./run_summaries/*_nexus.csv')
-        );
-        """
-    )
-    return
-
-
-@app.cell
-def _(mo):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE journal_summary AS (
-            SELECT
-                beamline,
-                run_number,
-                total_mevents,
-                duration,
-                good_frames,
-                event_mode
-            FROM
-                read_csv('./run_summaries/*_journal.csv')
-        );
-        select * from journal_summary where event_mode > 0.
-        """
-    )
-    return
-
-
-@app.cell
-def _(mo):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE icp_debug AS (
-            SELECT
-                *
-            FROM
-                read_csv('./run_summaries/*_icp_debug.csv')
-        );
-        """
-    )
-    return
-
-
-@app.cell
-def _(mo):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE beamline_target_mapping as (
-            SELECT
-                *
-            FROM
-                read_csv('./beamline_target_mapping.csv')
-        );
-        """
-    )
-    return
-
-
-@app.cell
-def _(mo):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE target_station as (
-            SELECT
-              *
-            FROM
-              read_csv('./target_station.csv')
-
-        );
-        """
-    )
-    return
-
-
-@app.cell
-def _(beamline_target_mapping, icp_debug, journal_summary, mo, nexus_summary):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE event_counts as (
-            SELECT
-                n.beamline,
-                b.target_station,
-                n.run_number,
-                i.icp_error_count,
-                good_frames,
-                total_mevents,
-                total_detector_mevents as nexus_det_mevents,
-                total_monitor_mevents as nexus_mon_mevents
-            FROM
-                nexus_summary n
-                JOIN journal_summary j ON n.beamline = j.beamline
-                AND n.run_number = j.run_number
-                JOIN icp_debug i ON i.beamline = n.beamline
-                AND n.run_number = i.run_number
-                JOIN beamline_target_mapping b ON n.beamline = b.beamline
-            WHERE
-                duration > 0.0
-                AND good_frames > 0
-                AND i.icp_error_count = 0
-                AND j.total_mevents >= (total_detector_mevents + total_monitor_mevents)
-        );
-
+        with
+            beamline_target_mapping as (
+                select
+                    *
+                from
+                    read_csv('./beamline_target_mapping.csv')
+            ),
+            target_station as (
+                select
+                    *
+                from
+                    read_csv('./target_station.csv')
+            ),
+            events_per_frame_stats as (
+                select
+                    beamline,
+                    max(total_detector_mevents / good_frames) as max_det_mevents_per_frame,
+                    quantile(total_detector_mevents / good_frames, 0.99) as p99_det_mevents_per_frame,
+                    quantile(total_detector_mevents / good_frames, 0.999) as p999_det_mevents_per_frame,
+                    max(total_monitor_mevents / good_frames) as max_mon_mevents_per_frame
+                from
+                    run_summary
+                group by
+                    beamline
+            )
         select
-            *
+            e.beamline,
+            bt.target_station,
+            tgt.mode_label,
+            tgt.framerate_hz,
+            framerate_hz * (
+                ({ev44_header_bits} / 1_000_000) + max_det_mevents_per_frame * {ev44_per_event_bits}
+            ) as max_det_mbits_sec,
+            framerate_hz * (
+                ({ev44_header_bits} / 1_000_000) + p99_det_mevents_per_frame * {ev44_per_event_bits}
+            ) as p99_det_mbits_sec,
+            framerate_hz * (
+                ({ev44_header_bits} / 1_000_000) + p999_det_mevents_per_frame * {ev44_per_event_bits}
+            ) as p999_det_mbits_sec
         from
-            event_counts
-        where beamline = 'NIMROD'  AND run_number = 97597;
+            events_per_frame_stats e
+            join beamline_target_mapping bt on e.beamline = bt.beamline
+            join target_station tgt on bt.target_station = tgt.number;
         """
     )
     return
 
 
-@app.cell
-def _(event_counts, mo):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE events_per_frame as (
-            SELECT
-                beamline,
-                run_number,
-                target_station,
-            	good_frames,
-                ROUND(nexus_det_mevents / good_frames , 4) as det_mevents_per_frame,
-                ROUND(nexus_mon_mevents / good_frames, 4) as mon_mevents_per_frame,
-            FROM
-                event_counts
-        );
-        -- select * from events_per_frame order by det_mevents_per_frame DESC;
-        """
-    )
-    return
-
-
-@app.cell
-def _(
-    ev44_header_bits,
-    ev44_per_event_bits,
-    events_per_frame,
-    mo,
-    target_station,
-):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE event_data_rate as (
-            SELECT
-                e.beamline,
-                e.run_number,
-                t.mode_label,
-                t.framerate_hz,
-                det_mevents_per_frame,
-        	    mon_mevents_per_frame,
-                framerate_hz * (
-                    ({ev44_header_bits} / 1_000_000) + det_mevents_per_frame * {ev44_per_event_bits}
-                ) as det_mbits_sec,
-                framerate_hz * (
-                    ({ev44_header_bits} / 1_000_000) + mon_mevents_per_frame * {ev44_per_event_bits}
-                ) as mon_mbits_sec
-            FROM
-                events_per_frame e
-                JOIN target_station t ON e.target_station = t.target_station
-        );
-        """
-    )
-    return
-
-
-@app.cell
-def _(event_data_rate, mo):
-    _df = mo.sql(
-        f"""
-        SELECT
-            beamline,
-            mode_label,
-            ROUND(MAX(det_mevents_per_frame), 4) as max_det_mevents_per_frame,
-            ROUND(MAX(mon_mevents_per_frame), 4) as max_mon_mevents_per_frame,
-            ROUND(MAX(det_mbits_sec), 4) as max_det_mbits_sec,
-            ROUND(MAX(mon_mbits_sec), 4) as max_mon_mbits_sec,
-            ROUND(QUANTILE(det_mevents_per_frame, 0.99), 4) as p99_det_mevents_per_frame,
-            ROUND(QUANTILE(mon_mevents_per_frame, 0.99), 4) as p99_mon_mevents_per_frame,
-            ROUND(QUANTILE(det_mbits_sec, 0.99), 4) as p99_det_mbits_sec,
-            ROUND(QUANTILE(mon_mbits_sec, 0.99), 4) as p99_mon_mbits_sec
-        FROM
-            event_data_rate
-        GROUP BY
-            beamline, mode_label
-        ORDER BY beamline ASC
-        """
-    )
+@app.cell(hide_code=True)
+def _():
     return
 
 
