@@ -6,33 +6,54 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
+    import os
+    from pathlib import Path
     import dotenv
     import marimo as mo
-    import os
 
     dotenv.load_dotenv()
 
-    RUN_SUMMARY_JSON_DIR = os.environ["RUN_SUMMARY_JSON_DIR"]
+    REPO_DATA_DIR = Path() / "data"
+    RUN_SUMMARY_JSON_DIR = Path(os.environ["RUN_SUMMARY_JSON_DIR"])
+
     print(f"Loading run summaries from '{RUN_SUMMARY_JSON_DIR}'")
-    return RUN_SUMMARY_JSON_DIR, mo
+    return REPO_DATA_DIR, RUN_SUMMARY_JSON_DIR, mo
 
 
 @app.cell
-def _(RUN_SUMMARY_JSON_DIR, mo):
+def _(REPO_DATA_DIR, RUN_SUMMARY_JSON_DIR, mo):
     _df = mo.sql(
         f"""
-        create or replace table run_summary AS (
-            SELECT
+        -- CORE tables
+
+        create or replace table beamline as (
+            select
                 *
-            FROM
-                read_json('{RUN_SUMMARY_JSON_DIR}/HRPD*.json')
-            WHERE
-                duration > 0.0
-                AND good_frames > 0
-                AND icp_error_count = 0
-                AND total_mevents >= (total_detector_mevents + total_monitor_mevents)
+            from
+                read_json('{REPO_DATA_DIR}/beamline.json')
         );
-        -- select * from run_summary;
+
+        create or replace table target_station as (
+            select
+                *
+            from
+                read_json('{REPO_DATA_DIR}/target_station.json')
+        );
+
+        create or replace table run_summary AS (
+            select
+                *
+            from
+                read_json('{RUN_SUMMARY_JSON_DIR}/HRPD*.json')
+            where
+                duration > 0.0
+                and good_frames > 0
+                and icp_error_count = 0
+                and total_mevents >= (total_detector_mevents + total_monitor_mevents)
+        );
+
+        -- DEBUGGING
+        -- select * from target_station;
         """
     )
     return
@@ -66,22 +87,17 @@ def _():
 
 
 @app.cell
-def _(ev44_header_bits, ev44_per_event_bits, mo, run_summary):
+def _(
+    beamline,
+    ev44_header_bits,
+    ev44_per_event_bits,
+    mo,
+    run_summary,
+    target_station,
+):
     _df = mo.sql(
         f"""
         with
-            beamline_target_mapping as (
-                select
-                    *
-                from
-                    read_csv('./beamline_target_mapping.csv')
-            ),
-            target_station as (
-                select
-                    *
-                from
-                    read_csv('./target_station.csv')
-            ),
             events_per_frame_stats as (
                 select
                     beamline,
@@ -110,7 +126,7 @@ def _(ev44_header_bits, ev44_per_event_bits, mo, run_summary):
             ) as p999_det_mbits_sec
         from
             events_per_frame_stats e
-            join beamline_target_mapping bt on e.beamline = bt.beamline
+            join beamline bt on e.beamline = bt.beamline
             join target_station tgt on bt.target_station = tgt.number;
         """
     )

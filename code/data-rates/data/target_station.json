@@ -1,0 +1,5 @@
+[
+  { "number": 1, "mode_label": "ts1_50hz", "framerate_hz": 50 },
+  { "number": 1, "mode_label": "ts1_40hz", "framerate_hz": 40 },
+  { "number": 2, "mode_label": "ts1_40hz", "framerate_hz": 10 }
+]
