@@ -104,7 +104,7 @@ def summarise_run(
         nexus_summary = NexusIOError(
             f"NeXus file missing for {journal.beamline} run number {journal_entry.run_number}"
         )
-    except RuntimeError as exc:
+    except (KeyError, RuntimeError) as exc:
         logger.exception(f"{nexus_file}")
         nexus_summary = NexusIOError(f"{nexus_file}: {exc}")
 
