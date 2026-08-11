@@ -19,7 +19,7 @@ spec:
     driver: smb.csi.k8s.io
     volumeHandle: s3-backend-v3
     volumeAttributes:
-      source: "//ISIS.cclrc.ac.uk/Shares/MNeudataCC"
+      source: "//ISISFS-ExpData2.isis.cclrc.ac.uk/MNeudataCC$"
       subDir: "s3-backend"
     nodeStageSecretRef:
       name: smb-creds
