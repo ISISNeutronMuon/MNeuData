@@ -11,6 +11,9 @@ spec:
   - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     path: compute-cluster/gitops/components/versitygw
+    # Enable Helm inflation inside Kustomize
+    kustomize:
+      buildOptions: "--enable-helm"
   destination:
     server: https://kubernetes.default.svc
     namespace: versitygw-system
