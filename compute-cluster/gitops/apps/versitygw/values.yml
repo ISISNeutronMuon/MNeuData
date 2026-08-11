@@ -10,6 +10,9 @@ gateway:
 auth:
   existingSecret: "versity-s3-root"
 
+ingress:
+  enabled: false
+
 httpRoute:
   enabled: true
   parentRefs:
@@ -24,6 +27,12 @@ httpRoute:
         - path:
             type: "PathPrefix"
             value: "/s3"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/"
 
 webui:
   enabled: true
@@ -41,6 +50,12 @@ webui:
           - path:
               type: "PathPrefix"
               value: "/versityui"
+        filters:
+          - type: URLRewrite
+            urlRewrite:
+              path:
+                type: ReplacePrefixMatch
+                replacePrefixMatch: "/"
 
 persistence:
   enabled: true
