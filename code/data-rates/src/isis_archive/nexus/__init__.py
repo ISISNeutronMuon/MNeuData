@@ -1,8 +1,6 @@
 from pathlib import Path
 
 from ..models import NexusSummary
-from .hdf4 import summarise_nexus as summarise_nexus_hdf4
-from .hdf5 import summarise_nexus as summarise_nexus_hdf5
 
 # File-format magic bytes.
 HDF5_MAGIC = b"\x89HDF\r\n\x1a\n"  # first 8 bytes of any HDF5 file
@@ -24,9 +22,13 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
     magic = _read_magic(nexus_path)
 
     if magic.startswith(HDF5_MAGIC):
+        from .hdf5 import summarise_nexus as summarise_nexus_hdf5
+
         return summarise_nexus_hdf5(nexus_path)
 
     if magic.startswith(HDF4_MAGIC):
+        from .hdf4 import summarise_nexus as summarise_nexus_hdf4
+
         return summarise_nexus_hdf4(nexus_path)
 
     raise ValueError(f"Unrecognised NeXus file format (bad magic bytes): {nexus_path}")
