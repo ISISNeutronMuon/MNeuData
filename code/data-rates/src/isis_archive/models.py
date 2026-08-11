@@ -55,6 +55,8 @@ class JournalEntry:
     number_spectra: int
     number_detectors: int
 
+    frame_sync: str
+
     # optional fields
     title: str = ""
 

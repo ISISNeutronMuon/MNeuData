@@ -25,6 +25,7 @@ JOURNAL_FIELD_ORDER = [
     "event_mode",
     "number_spectra",
     "number_detectors",
+    "frame_sync",
 ]
 NEXUS_FIELD_ORDER = [
     "total_detector_mevents",
