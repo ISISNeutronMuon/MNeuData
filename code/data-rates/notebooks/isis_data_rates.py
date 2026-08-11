@@ -6,6 +6,7 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
+    import altair as alt
     import os
     from pathlib import Path
     import dotenv
@@ -25,35 +26,36 @@ def _(REPO_DATA_DIR, RUN_SUMMARY_JSON_DIR, mo):
     _df = mo.sql(
         f"""
         -- CORE tables
-
-        create or replace table beamline as (
-            select
+        CREATE OR REPLACE TABLE beamline AS (
+            SELECT
                 *
-            from
+            FROM
                 read_json('{REPO_DATA_DIR}/beamline.json')
         );
 
-        create or replace table target_station as (
-            select
+        CREATE OR REPLACE TABLE target_station AS (
+            SELECT
                 *
-            from
+            FROM
                 read_json('{REPO_DATA_DIR}/target_station.json')
         );
 
-        create or replace table run_summary AS (
-            select
+        -- Exclude runs where ICP recorded errors such as reading invalid memory
+        -- or where the total number of events recorded by the DAE counter is less
+        -- than recorded in the files.
+        CREATE OR REPLACE TABLE run_summary AS (
+            SELECT
                 *
-            from
-                read_json('{RUN_SUMMARY_JSON_DIR}/HRPD*.json')
-            where
+            FROM
+                read_json('{RUN_SUMMARY_JSON_DIR}/*.json')
+            WHERE
                 duration > 0.0
-                and good_frames > 0
-                and icp_error_count = 0
-                and total_mevents >= (total_detector_mevents + total_monitor_mevents)
+                AND good_frames > 0
+                AND total_mevents >= (total_detector_mevents + total_monitor_mevents)
         );
 
         -- DEBUGGING
-        -- select * from target_station;
+        select * from run_summary;
         """
     )
     return
@@ -87,54 +89,67 @@ def _():
 
 
 @app.cell
-def _(
-    beamline,
-    ev44_header_bits,
-    ev44_per_event_bits,
-    mo,
-    run_summary,
-    target_station,
-):
+def _(mo, run_summary):
     _df = mo.sql(
         f"""
-        with
-            events_per_frame_stats as (
-                select
-                    beamline,
-                    max(total_detector_mevents / good_frames) as max_det_mevents_per_frame,
-                    quantile(total_detector_mevents / good_frames, 0.99) as p99_det_mevents_per_frame,
-                    quantile(total_detector_mevents / good_frames, 0.999) as p999_det_mevents_per_frame,
-                    max(total_monitor_mevents / good_frames) as max_mon_mevents_per_frame
-                from
-                    run_summary
-                group by
-                    beamline
-            )
-        select
-            e.beamline,
-            bt.target_station,
-            tgt.mode_label,
-            tgt.framerate_hz,
-            framerate_hz * (
-                ({ev44_header_bits} / 1_000_000) + max_det_mevents_per_frame * {ev44_per_event_bits}
-            ) as max_det_mbits_sec,
-            framerate_hz * (
-                ({ev44_header_bits} / 1_000_000) + p99_det_mevents_per_frame * {ev44_per_event_bits}
-            ) as p99_det_mbits_sec,
-            framerate_hz * (
-                ({ev44_header_bits} / 1_000_000) + p999_det_mevents_per_frame * {ev44_per_event_bits}
-            ) as p999_det_mbits_sec
-        from
-            events_per_frame_stats e
-            join beamline bt on e.beamline = bt.beamline
-            join target_station tgt on bt.target_station = tgt.number;
+        -- Raw events per frame
+        CREATE OR REPLACE TABLE events_per_frame AS (
+            SELECT
+                beamline,
+                run_number,
+                (total_detector_mevents / good_frames) AS det_mevents_per_frame,
+                (total_monitor_mevents / good_frames) AS mon_mevents_per_frame
+            FROM
+                run_summary
+        );
+
+        CREATE OR REPLACE TABLE events_per_frame_stats AS (
+            SELECT
+                beamline,
+                max(det_mevents_per_frame) AS max_det_mevents_per_frame,
+                quantile(det_mevents_per_frame, 0.999) AS p999_det_mevents_per_frame,
+                max(mon_mevents_per_frame) AS max_mon_mevents_per_frame,
+                quantile(mon_mevents_per_frame, 0.999) AS p999_mon_mevents_per_frame,
+            FROM
+                events_per_frame
+            GROUP BY
+                beamline
+        );
         """
     )
     return
 
 
-@app.cell(hide_code=True)
-def _():
+@app.cell
+def _(
+    beamline,
+    ev44_header_bits,
+    ev44_per_event_bits,
+    events_per_frame_stats,
+    mo,
+    target_station,
+):
+    _df = mo.sql(
+        f"""
+        CREATE OR REPLACE MACRO to_mbits_sec (framerate_hz, evts_per_frame) AS framerate_hz * (
+            ({ev44_header_bits} / 1_000_000) + evts_per_frame * {ev44_per_event_bits}
+        );
+
+        SELECT
+            e.beamline,
+            bt.target_station,
+            tgt.mode_label,
+            tgt.framerate_hz,
+            to_mbits_sec (tgt.framerate_hz, max_det_mevents_per_frame) AS max_det_mbits_sec,
+            to_mbits_sec (tgt.framerate_hz, p999_det_mevents_per_frame) AS p999_det_mbits_sec,
+            to_mbits_sec (tgt.framerate_hz, max_mon_mevents_per_frame) AS max_mon_mbits_sec,
+            to_mbits_sec (tgt.framerate_hz, p999_mon_mevents_per_frame) AS p999_mon_mbits_sec,
+        FROM
+            events_per_frame_stats e
+            JOIN beamline bt ON e.beamline = bt.beamline
+            JOIN target_station tgt ON bt.target_station = tgt.number
+        """
+    )
     return
 
 
