@@ -7,8 +7,8 @@ metadata:
   - resources-finalizer.argocd.argoproj.io
 spec:
   project: infra
-  sources:
-  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+  source:
+    repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     path: compute-cluster/gitops/components/versitygw
     # Enable Helm inflation inside Kustomize
