@@ -19,6 +19,8 @@ spec:
     driver: smb.csi.k8s.io
     volumeHandle: s3-backend-v3
     volumeAttributes:
+      # Possible that the share could migrate on the backend, DFS does not work within Talos, or linux more generally
+      # (Works with an OS level hack on Linux but does not work on Talos at all)
       source: "//ISISFS-ExpData2.isis.cclrc.ac.uk/MNeudataCC$"
       subDir: "s3-backend"
     nodeStageSecretRef:

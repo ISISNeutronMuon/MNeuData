@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Render the Helm chart
+helmCharts:
+  - name: versitygw
+    repo: oci://ghcr.io/versity/versitygw/charts
+    version: 0.3.5
+    releaseName: versitygw
+    namespace: versitygw
+    valuesFile: values.yml
+
+# Patch the generated HTTPRoute manifests to add URLRewrite filters
+patches:
+  - target:
+      kind: HTTPRoute
+      name: versitygw
+    patch: |-
+      - op: add
+        path: /spec/rules/0/filters
+        value:
+          - type: URLRewrite
+            urlRewrite:
+              path:
+                type: ReplacePrefixMatch
+                replacePrefixMatch: /
+
+  - target:
+      kind: HTTPRoute
+      name: versitygw-webui
+    patch: |-
+      - op: add
+        path: /spec/rules/0/filters
+        value:
+          - type: URLRewrite
+            urlRewrite:
+              path:
+                type: ReplacePrefixMatch
+                replacePrefixMatch: /
+
+# Add the resources to the kustomization
+resources:
+  - s3-backend-pv.yml
+  - s3-backend-pvc.yml
+  - versity-s3-root-secret.yml
