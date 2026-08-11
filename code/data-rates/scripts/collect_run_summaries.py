@@ -43,14 +43,20 @@ def collect_summaries(
     should_skip_cycle: SkipCycleCallback | None = None,
     max_workers: int | None = None,
     limit_per_worker: int | None = None,
+    skip_nexus: bool = False,
 ) -> list[RunSummary]:
     """Walk the root directory and build a list of :class:`RunSummary`.
 
     Each journal file maps to exactly one ``(beamline, cycle)``.
+
+    When ``skip_nexus`` is ``True`` only the journals are parsed; NeXus-derived
+    fields are left unpopulated (serialised as ``null``).
     """
     logger.info(f"Collecting summaries from {root}")
     if cycle_pattern is not None:
         logger.info(f"Restricting to cycle {cycle_pattern}")
+    if skip_nexus:
+        logger.info("Skipping NeXus parsing; NeXus fields will be null")
 
     journals = discover_journals(root, beamlines, cycle_pattern)
     if should_skip_cycle is not None:
@@ -62,7 +68,9 @@ def collect_summaries(
     summaries: list[RunSummary] = []
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_journal = {
-            executor.submit(summarise_journal, root, journal, limit_per_worker): journal
+            executor.submit(
+                summarise_journal, root, journal, limit_per_worker, skip_nexus
+            ): journal
             for journal in journals
         }
         logger.info(f"Submitted {len(future_to_journal)} cycle(s) to the pool")
@@ -171,6 +179,15 @@ def _validate_cycle_pattern(
         "output directory."
     ),
 )
+@click.option(
+    "--skip-nexus",
+    is_flag=True,
+    default=False,
+    help=(
+        "Only parse the journal files; do not open the associated NeXus (or ICP "
+        "debug) files. All NeXus-derived fields are written as null."
+    ),
+)
 def main(
     root: Path,
     output_dir: Path,
@@ -180,6 +197,7 @@ def main(
     limit_per_worker: int,
     log_level: str,
     force: bool,
+    skip_nexus: bool,
 ) -> None:
     logging.basicConfig(
         level=log_level.upper(),
@@ -199,6 +217,7 @@ def main(
         should_skip_cycle=should_skip_cycle_cb,
         max_workers=max_workers,
         limit_per_worker=limit_per_worker,
+        skip_nexus=skip_nexus,
     )
 
     click.echo(f"\nParsed {len(summaries)} run(s).", err=True)

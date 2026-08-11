@@ -75,12 +75,19 @@ def parse_journal(journal_path: Path) -> Iterator[JournalEntry]:
 
 
 def summarise_journal(
-    root: Path, journal: DiscoveredJournal, limit: int | None
+    root: Path,
+    journal: DiscoveredJournal,
+    limit: int | None,
+    skip_nexus: bool = False,
 ) -> list[RunSummary]:
-    """Summarise a :class:`RunSummary` for each entry in a single journal file."""
+    """Summarise a :class:`RunSummary` for each entry in a single journal file.
+
+    When ``skip_nexus`` is ``True`` the associated NeXus (and ICP debug) files
+    are not opened; the NeXus-derived fields are left unpopulated.
+    """
     summaries = []
     for journal_entry in parse_journal(journal.path):
-        summaries.append(summarise_run(root, journal, journal_entry))
+        summaries.append(summarise_run(root, journal, journal_entry, skip_nexus))
         if limit is not None and len(summaries) == limit:
             break
 
@@ -88,9 +95,29 @@ def summarise_journal(
 
 
 def summarise_run(
-    root: Path, journal: DiscoveredJournal, journal_entry: JournalEntry
+    root: Path,
+    journal: DiscoveredJournal,
+    journal_entry: JournalEntry,
+    skip_nexus: bool = False,
 ) -> RunSummary:
-    """Summarise a run based on the given journal entry, includes reading additional information from the Nexus file"""
+    """Summarise a run based on the given journal entry.
+
+    Unless ``skip_nexus`` is ``True`` this also reads additional information from
+    the associated NeXus and ICP debug files. When skipped, ``nexus_file`` and
+    ``nexus`` are ``None`` so all NeXus-derived output fields serialise as
+    ``null``.
+    """
+    if skip_nexus:
+        return RunSummary(
+            journal.beamline,
+            journal.cycle_suffix,
+            journal.path.relative_to(root),
+            None,
+            journal_entry,
+            None,
+            None,
+        )
+
     nexus_file = None
     try:
         nexus_file = find_nexus_file(

@@ -100,7 +100,8 @@ class RunSummary:
     journal: JournalEntry
 
     # Extra attributes filled in from the HDF5 file (if it can be read).
-    nexus: NexusSummary | NexusIOError
+    # ``None`` when NeXus parsing was skipped entirely (see ``skip_nexus``).
+    nexus: NexusSummary | NexusIOError | None
 
     # Number of lines containing a failure in the ``_ICPdebug.txt`` file that
     # sits next to the NeXus file. ``None`` if the debug file was not found.
