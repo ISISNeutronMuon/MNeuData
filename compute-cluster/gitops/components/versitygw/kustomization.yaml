@@ -38,18 +38,18 @@ patches:
                 type: ReplacePrefixMatch
                 replacePrefixMatch: /
 
-#  - target:
-#      kind: HTTPRoute
-#      name: versitygw-admin
-#    patch: |-
-#      - op: add
-#        path: /spec/rules/0/filters
-#        value:
-#          - type: URLRewrite
-#            urlRewrite:
-#              path:
-#                type: ReplacePrefixMatch
-#                replacePrefixMatch: /
+  - target:
+      kind: HTTPRoute
+      name: versitygw-admin
+    patch: |-
+      - op: add
+        path: /spec/rules/0/filters
+        value:
+          - type: URLRewrite
+            urlRewrite:
+              path:
+                type: ReplacePrefixMatch
+                replacePrefixMatch: /
 
 # Add the resources to the kustomization
 resources:
