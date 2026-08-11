@@ -10,7 +10,7 @@ gateway:
 auth:
   existingSecret: "versity-s3-root"
 
-httproute:
+httpRoute:
   enabled: true
   parentRefs:
     - group: gateway.networking.k8s.io
@@ -27,7 +27,7 @@ httproute:
 
 webui:
   enabled: true
-  httproute:
+  httpRoute:
     enabled: true
     parentRefs:
       - group: gateway.networking.k8s.io
