@@ -1,0 +1,118 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: versitygw
+  namespace: versitygw-system
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway
+    namespace: kube-system
+  hostnames:
+  - s3.compute.isis.cclrc.ac.uk
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - https://versity.compute.isis.cclrc.ac.uk
+        allowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        - HEAD
+        allowHeaders:
+        - authorization
+        - content-type
+        - x-amz-content-sha256
+        - x-amz-date
+        - x-amz-user-agent
+        exposeHeaders:
+        - ETag
+        allowCredentials: true
+        maxAge: 600
+    backendRefs:
+    - group: ""
+      kind: Service
+      name: versitygw
+      port: 7070
+      weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: versitygw-admin
+  namespace: versitygw-system
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway
+    namespace: kube-system
+  hostnames:
+  - s3-admin.compute.isis.cclrc.ac.uk
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - https://versity.compute.isis.cclrc.ac.uk
+        allowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        - HEAD
+        allowHeaders:
+        - authorization
+        - content-type
+        - x-amz-content-sha256
+        - x-amz-date
+        - x-amz-user-agent
+        exposeHeaders:
+        - ETag
+        allowCredentials: true
+        maxAge: 600
+    backendRefs:
+    - group: ""
+      kind: Service
+      name: versitygw
+      port: 7071
+      weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: versitygw-webui
+  namespace: versitygw-system
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway
+    namespace: kube-system
+  hostnames:
+  - versity.compute.isis.cclrc.ac.uk
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - group: ""
+      kind: Service
+      name: versitygw
+      port: 8080
+      weight: 1

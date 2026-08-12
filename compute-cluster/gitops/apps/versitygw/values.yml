@@ -11,14 +11,7 @@ auth:
   existingSecret: "versity-s3-root"
 
 httpRoute:
-  enabled: true
-  parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway
-      namespace: kube-system
-  hostnames:
-    - "s3.compute.isis.cclrc.ac.uk"
+  enabled: false
 
 webui:
   enabled: true
@@ -27,26 +20,12 @@ webui:
   adminGateways:
     - "https://s3-admin.compute.isis.cclrc.ac.uk"
   httpRoute:
-    enabled: true
-    parentRefs:
-      - group: gateway.networking.k8s.io
-        kind: Gateway
-        name: gateway
-        namespace: kube-system
-    hostnames:
-      - "versity.compute.isis.cclrc.ac.uk"
+    enabled: false
 
 admin:
   enabled: true
   httpRoute:
-    enabled: true
-    parentRefs:
-      - group: gateway.networking.k8s.io
-        kind: Gateway
-        name: gateway
-        namespace: kube-system
-    hostnames:
-      - "s3-admin.compute.isis.cclrc.ac.uk"
+    enabled: false
 
 persistence:
   enabled: true
