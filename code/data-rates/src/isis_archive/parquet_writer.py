@@ -1,61 +1,38 @@
 from __future__ import annotations
 
-import json
 import logging
+from dataclasses import fields
 from pathlib import Path
 from typing import cast
 
-from .models import NexusIOError, NexusSummary, RunSummary
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+from .models import JournalEntry, NexusIOError, NexusSummary, RunSummary
 
 logger = logging.getLogger("isis_archive")
 
-# Output field ordering
-JOURNAL_FIELD_ORDER = [
-    "run_number",
-    "experiment_identifier",
-    "title",
-    "start_time",
-    "end_time",
-    "duration",
-    "proton_charge",
-    "raw_frames",
-    "good_frames",
-    "number_periods",
-    "total_mevents",
-    "event_mode",
-    "number_spectra",
-    "number_detectors",
-    "frame_sync",
-]
-NEXUS_FIELD_ORDER = [
-    "file_size_bytes",
-    "total_detector_mevents",
-    "total_monitor_mevents",
-    "selog_entries_count",
-    "total_selog_time_points",
-    "framelog_entries_count",
-    "total_framelog_time_points",
-]
-ICP_FIELD_ORDER = ["icp_debug_text"]
 
-
-def json_filename(beamline: str, cycle: str) -> str:
-    """Build the CSV filename for a beamline/cycle group."""
-    return f"{beamline}_{cycle}.json"
+def pq_filename(beamline: str, cycle: str) -> str:
+    """Build the parquet filename for a beamline/cycle group."""
+    return f"{beamline}_{cycle}.parquet"
 
 
 def write_cycle_files(
     beamline: str, cycle: str, summaries: list[RunSummary], output: Path
 ):
-    """Write summary information as JSON records and any failed nexus reads"""
+    """Write summary information as a parquet file and any failed nexus reads separately"""
+
     output.mkdir(parents=True, exist_ok=True)
-    json_path = output / json_filename(beamline, cycle)
+    pq_path = output / pq_filename(beamline, cycle)
 
     records = [_to_record(summary) for summary in summaries]
-    with open(json_path, "w") as fp:
-        json.dump(records, fp)
+    pq.write_table(
+        pa.Table.from_pylist(records),
+        str(output / pq_filename(beamline, cycle)),
+    )
 
-    logger.info(f"Wrote {len(records)} run(s) to {json_path}")
+    logger.info(f"Wrote {len(records)} run(s) to {pq_path}")
     write_failed_nexus_read_log(beamline, cycle, summaries, output)
 
 
@@ -73,14 +50,17 @@ def _to_record(summary: RunSummary) -> dict:
         "cycle": summary.cycle,
         # journal fields
         "journal_filename": str(summary.journal_file),
-        **{column: getattr(journal, column) for column in JOURNAL_FIELD_ORDER},
+        **{field.name: getattr(journal, field.name) for field in fields(JournalEntry)},
         # nexus fields
         "nexus_filename": (
             str(summary.nexus_file) if summary.nexus_file is not None else None
         ),
-        **{column: nexus_field_or_none(column) for column in NEXUS_FIELD_ORDER},
+        **{
+            field.name: nexus_field_or_none(field.name)
+            for field in fields(NexusSummary)
+        },
         # icp_debug
-        **{column: getattr(summary, column) for column in ICP_FIELD_ORDER},
+        "icp_debug_text": summary.icp_debug_text,
     }
 
 

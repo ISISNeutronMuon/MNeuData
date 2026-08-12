@@ -107,7 +107,3 @@ class RunSummary:
 
     # Text form ICPDebug
     icp_debug_text: str | None = None
-
-    # # Number of lines containing a failure in the ``_ICPdebug.txt`` file that
-    # # sits next to the NeXus file. ``None`` if the debug file was not found.
-    # icp_error_count: int | None = None

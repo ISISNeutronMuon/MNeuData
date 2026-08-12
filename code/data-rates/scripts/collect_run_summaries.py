@@ -24,8 +24,8 @@ import click
 from isis_archive.cycle import CYCLE_ID_RE
 from isis_archive.discover import discover_journals
 from isis_archive.journal import summarise_journal
-from isis_archive.json_writer import json_filename, write_cycle_files
 from isis_archive.models import RunSummary
+from isis_archive.parquet_writer import pq_filename, write_cycle_files
 
 logger = logging.getLogger("collect_run_summaries")
 
@@ -97,7 +97,7 @@ def collect_summaries(
 
 
 def _should_skip_cycle(beamline: str, cycle_suffix: str, output_dir: Path) -> bool:
-    return not (output_dir / json_filename(beamline, cycle_suffix)).exists()
+    return not (output_dir / pq_filename(beamline, cycle_suffix)).exists()
 
 
 def _validate_cycle_pattern(
