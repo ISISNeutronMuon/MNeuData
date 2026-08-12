@@ -40,6 +40,20 @@ patches:
 
   - target:
       kind: HTTPRoute
+      name: versitygw-webui
+    patch: |-
+      - op: add
+        path: /spec/rules/1/filters
+        value:
+          - type: RequestRedirect
+            requestRedirect:
+              path:
+                type: ReplaceFullPath
+                replaceFullPath: /versityui/
+              statusCode: 301
+
+  - target:
+      kind: HTTPRoute
       name: versitygw-admin
     patch: |-
       - op: add
@@ -50,6 +64,7 @@ patches:
               path:
                 type: ReplacePrefixMatch
                 replacePrefixMatch: /
+
 
 # Add the resources to the kustomization
 resources:
