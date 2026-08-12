@@ -8,7 +8,7 @@ from typing import cast
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from .models import JournalEntry, NexusIOError, NexusSummary, RunSummary
+from .models import ICP, JournalEntry, NexusIOError, NexusSummary, RunSummary
 
 logger = logging.getLogger("isis_archive")
 
@@ -39,10 +39,9 @@ def write_cycle_files(
 def _to_record(summary: RunSummary) -> dict:
     """Serialize a summary as a JSON record"""
 
-    def nexus_field_or_none(field: str):
-        return getattr(nexus, field) if has_nexus else None
+    def field_or_none(obj, field: str):
+        return getattr(obj, field) if has_nexus else None
 
-    journal, nexus = summary.journal, summary.nexus
     has_nexus = isinstance(summary.nexus, NexusSummary)
     return {
         # primary key
@@ -50,17 +49,20 @@ def _to_record(summary: RunSummary) -> dict:
         "cycle": summary.cycle,
         # journal fields
         "journal_filename": str(summary.journal_file),
-        **{field.name: getattr(journal, field.name) for field in fields(JournalEntry)},
+        **{
+            field.name: getattr(summary.journal, field.name)
+            for field in fields(JournalEntry)
+        },
         # nexus fields
         "nexus_filename": (
             str(summary.nexus_file) if summary.nexus_file is not None else None
         ),
         **{
-            field.name: nexus_field_or_none(field.name)
+            field.name: field_or_none(summary.nexus, field.name)
             for field in fields(NexusSummary)
         },
         # icp_debug
-        "icp_debug_text": summary.icp_debug_text,
+        **{field.name: field_or_none(summary.icp, field.name) for field in fields(ICP)},
     }
 
 
