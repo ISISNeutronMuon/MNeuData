@@ -10,7 +10,3 @@ spec:
         args:
         - /usr/local/bin/argocd-server
         - --insecure
-        - --basehref
-        - /argocd
-        - --rootpath
-        - /argocd

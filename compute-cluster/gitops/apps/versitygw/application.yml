@@ -7,13 +7,19 @@ metadata:
   - resources-finalizer.argocd.argoproj.io
 spec:
   project: infra
-  source:
-    repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+  sources:
+  - repoURL: oci://ghcr.io/versity/versitygw/charts/versitygw
+    chart: versitygw
+    targetRevision: 0.3.5
+    helm:
+      valueFiles:
+      - $values/compute-cluster/gitops/apps/versitygw/values.yml
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    ref: values
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     path: compute-cluster/gitops/components/versitygw
-    # Enable Helm inflation inside Kustomize
-    kustomize:
-      buildOptions: "--enable-helm"
   destination:
     server: https://kubernetes.default.svc
     namespace: versitygw-system

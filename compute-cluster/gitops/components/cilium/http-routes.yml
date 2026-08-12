@@ -10,12 +10,12 @@ spec:
     name: gateway
     namespace: kube-system
   hostnames:
-  - compute.isis.cclrc.ac.uk
+  - argo.compute.isis.cclrc.ac.uk
   rules:
   - matches:
     - path:
         type: PathPrefix
-        value: /argocd
+        value: /
     backendRefs:
     - group: ""
       kind: Service
@@ -35,12 +35,12 @@ spec:
     name: gateway
     namespace: kube-system
   hostnames:
-  - compute.isis.cclrc.ac.uk
+  - hubble.compute.isis.cclrc.ac.uk
   rules:
   - matches:
     - path:
         type: PathPrefix
-        value: /hubble
+        value: /
     backendRefs:
     - group: ""
       kind: Service

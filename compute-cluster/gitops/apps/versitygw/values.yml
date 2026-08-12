@@ -18,19 +18,14 @@ httpRoute:
       name: gateway
       namespace: kube-system
   hostnames:
-    - "compute.isis.cclrc.ac.uk"
-  rules:
-    - matches:
-        - path:
-            type: "PathPrefix"
-            value: "/s3"
+    - "s3.compute.isis.cclrc.ac.uk"
 
 webui:
   enabled: true
   apiGateways:
-    - "https://compute.isis.cclrc.ac.uk/s3"
+    - "https://s3.compute.isis.cclrc.ac.uk"
   adminGateways:
-    - "https://compute.isis.cclrc.ac.uk/versity-adminapi"
+    - "https://s3-admin.compute.isis.cclrc.ac.uk"
   httpRoute:
     enabled: true
     parentRefs:
@@ -39,12 +34,7 @@ webui:
         name: gateway
         namespace: kube-system
     hostnames:
-      - "compute.isis.cclrc.ac.uk"
-    rules:
-      - matches:
-          - path:
-              type: "PathPrefix"
-              value: "/versityui"
+      - "versity.compute.isis.cclrc.ac.uk"
 
 admin:
   enabled: true
@@ -56,12 +46,7 @@ admin:
         name: gateway
         namespace: kube-system
     hostnames:
-      - "compute.isis.cclrc.ac.uk"
-    rules:
-      - matches:
-          - path:
-              type: "PathPrefix"
-              value: "/versity-adminapi"
+      - "s3-admin.compute.isis.cclrc.ac.uk"
 
 persistence:
   enabled: true
