@@ -10,9 +10,6 @@ gateway:
 auth:
   existingSecret: "versity-s3-root"
 
-ingress:
-  enabled: false
-
 httpRoute:
   enabled: true
   parentRefs:
@@ -27,15 +24,13 @@ httpRoute:
         - path:
             type: "PathPrefix"
             value: "/s3"
-      filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: "/"
 
 webui:
   enabled: true
+  apiGateways:
+    - "https://compute.isis.cclrc.ac.uk/s3"
+  adminGateways:
+    - "https://compute.isis.cclrc.ac.uk/versity-adminapi"
   httpRoute:
     enabled: true
     parentRefs:
@@ -50,12 +45,6 @@ webui:
           - path:
               type: "PathPrefix"
               value: "/versityui"
-        filters:
-          - type: URLRewrite
-            urlRewrite:
-              path:
-                type: ReplacePrefixMatch
-                replacePrefixMatch: "/"
 
 admin:
   enabled: true
