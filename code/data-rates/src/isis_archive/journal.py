@@ -9,7 +9,7 @@ from typing import cast
 
 from .discover import DiscoveredJournal
 from .facility import find_nexus_file
-from .icp_debug import read_icp_debug
+from .icp import read_icp_files
 from .models import JournalEntry, NexusIOError, RunSummary
 from .nexus import summarise_nexus
 
@@ -135,18 +135,18 @@ def summarise_run(
         logger.exception(f"{nexus_file}")
         nexus_summary = NexusIOError(f"{nexus_file}: {exc}")
 
-    icp_debug_text = None
+    icp = None
     if nexus_file is not None:
         try:
-            icp_debug_text = read_icp_debug(nexus_file)
-        except FileNotFoundError:
+            icp = read_icp_files(nexus_file)
+        except FileNotFoundError as exc:
             logger.debug(
-                f"No ICP debug file for {journal.beamline} run "
-                f"{journal_entry.run_number}"
+                f"No ICP file for {journal.beamline} run "
+                f"{journal_entry.run_number}: {exc}"
             )
         except RuntimeError:
             logger.exception(
-                f"Failed to read ICP debug file for {journal.beamline} run "
+                f"Failed to read ICP files for {journal.beamline} run "
                 f"{journal_entry.run_number}"
             )
 
@@ -157,7 +157,7 @@ def summarise_run(
         nexus_file.relative_to(root) if nexus_file is not None else None,
         journal_entry,
         nexus_summary,
-        icp_debug_text,
+        icp,
     )
 
 

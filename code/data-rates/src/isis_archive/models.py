@@ -35,6 +35,15 @@ class DiscoveredJournal:
 
 
 @dataclass
+class ICP:
+    """Capture parsed records relating to ICP activity."""
+
+    icp_debug: str
+    icp_event: str
+    icp_alarm: str | None = None
+
+
+@dataclass
 class JournalEntry:
     """Attributes parsed from a journal ``NXentry`` element."""
 
@@ -102,8 +111,7 @@ class RunSummary:
     journal: JournalEntry
 
     # Extra attributes filled in from the HDF5 file (if it can be read).
-    # ``None`` when NeXus parsing was skipped entirely (see ``skip_nexus``).
     nexus: NexusSummary | NexusIOError | None = None
 
-    # Text form ICPDebug
-    icp_debug_text: str | None = None
+    # If parsing NeXus also parse the ICP logs
+    icp: ICP | None = None
