@@ -40,6 +40,7 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
         )
         framelog_entries_count, total_framelog_time_points = 0, 0
         return NexusSummary(
+            nexus_path.stat().st_size,
             _read_total_detector_counts(vg_handle, sd_handle) / 1_000_000,
             0.0,  # Muons don't have monitors
             selog_entries_count,

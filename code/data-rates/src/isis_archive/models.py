@@ -65,13 +65,15 @@ class JournalEntry:
 class NexusSummary:
     """Summary information derivied from an ISIS NeXus file."""
 
+    file_size_bytes: int
+
     total_detector_mevents: float
     total_monitor_mevents: float
 
     selog_entries_count: int  # the number of IXselog entries
-    total_selog_time_points: int  # the sum total of the len(block_name/value_log/time) array across all selog entries
+    total_selog_time_points: int  # the total count of the len(block_name/value_log/time) array across all selog entries
     framelog_entries_count: int  # the number of NXcollection entries
-    total_framelog_time_points: int  # the sum total of the len(block_name/time) array across all framelog entries
+    total_framelog_time_points: int  # the total count of the len(block_name/time) array across all framelog entries
 
 
 @dataclass
@@ -101,7 +103,7 @@ class RunSummary:
 
     # Extra attributes filled in from the HDF5 file (if it can be read).
     # ``None`` when NeXus parsing was skipped entirely (see ``skip_nexus``).
-    nexus: NexusSummary | NexusIOError | None
+    nexus: NexusSummary | NexusIOError | None = None
 
     # Number of lines containing a failure in the ``_ICPdebug.txt`` file that
     # sits next to the NeXus file. ``None`` if the debug file was not found.

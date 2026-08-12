@@ -31,6 +31,7 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
     with h5py.File(str(nexus_path), "r") as fp:
         root_entry: h5py.Group = fp[RAW_DATA_1]  # type: ignore
         return NexusSummary(
+            file_size_bytes=nexus_path.stat().st_size,
             total_detector_mevents=_read_total_counts(
                 root_entry, NXDATA_CLASS, NXDATA_DATASET
             )

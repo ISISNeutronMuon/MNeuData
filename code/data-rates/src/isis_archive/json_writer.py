@@ -28,6 +28,7 @@ JOURNAL_FIELD_ORDER = [
     "frame_sync",
 ]
 NEXUS_FIELD_ORDER = [
+    "file_size_bytes",
     "total_detector_mevents",
     "total_monitor_mevents",
     "selog_entries_count",
