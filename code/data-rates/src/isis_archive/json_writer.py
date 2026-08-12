@@ -36,7 +36,7 @@ NEXUS_FIELD_ORDER = [
     "framelog_entries_count",
     "total_framelog_time_points",
 ]
-ICP_FIELD_ORDER = ["icp_error_count"]
+ICP_FIELD_ORDER = ["icp_debug_text"]
 
 
 def json_filename(beamline: str, cycle: str) -> str:

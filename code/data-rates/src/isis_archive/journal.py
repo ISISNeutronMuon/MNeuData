@@ -9,7 +9,7 @@ from typing import cast
 
 from .discover import DiscoveredJournal
 from .facility import find_nexus_file
-from .icp_debug import count_icp_debug_failures, icp_debug_path
+from .icp_debug import read_icp_debug
 from .models import JournalEntry, NexusIOError, RunSummary
 from .nexus import summarise_nexus
 
@@ -135,11 +135,10 @@ def summarise_run(
         logger.exception(f"{nexus_file}")
         nexus_summary = NexusIOError(f"{nexus_file}: {exc}")
 
-    # The ICP debug log sits next to the NeXus file; count its failures.
-    icp_error_count = None
+    icp_debug_text = None
     if nexus_file is not None:
         try:
-            icp_error_count = count_icp_debug_failures(icp_debug_path(nexus_file))
+            icp_debug_text = read_icp_debug(nexus_file)
         except FileNotFoundError:
             logger.debug(
                 f"No ICP debug file for {journal.beamline} run "
@@ -158,7 +157,7 @@ def summarise_run(
         nexus_file.relative_to(root) if nexus_file is not None else None,
         journal_entry,
         nexus_summary,
-        icp_error_count,
+        icp_debug_text,
     )
 
 

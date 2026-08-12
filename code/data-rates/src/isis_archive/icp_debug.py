@@ -5,28 +5,21 @@ from pathlib import Path
 
 logger = logging.getLogger("isis_archive")
 
-# Word marking a failure line in an ``_ICPdebug.txt`` file.
-ICP_DEBUG_FAILURE_MARKER = "failed"
 
-
-def count_icp_debug_failures(debug_path: Path) -> int:
-    """Count the number of lines in an ICP debug file that contain a failure.
-
-    A line is counted if it contains the word ``"failed"`` (case-insensitive).
+def read_icp_debug(nexus_path: Path) -> str:
+    """Read the ICPdebug.txt file associated with the given NeXus file
 
     Raises
     ------
     FileNotFoundError
         If ``debug_path`` does not exist.
     """
-    count = 0
-    with open(debug_path, "r", encoding="utf-8", errors="replace") as fp:
-        for line in fp:
-            if ICP_DEBUG_FAILURE_MARKER in line.lower():
-                count += 1
+    path = icp_debug_path(nexus_path)
+    with open(path, "r", encoding="utf-8", errors="replace") as fp:
+        content = fp.read()
 
-    logger.debug(f"Found {count} failure line(s) in {debug_path}")
-    return count
+    logger.debug(f"Read ICPdebug content from {path}")
+    return content
 
 
 def icp_debug_path(nexus_file: Path) -> Path:
