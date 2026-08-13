@@ -35,18 +35,13 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
     sd_handle = pyhdf.SD.SD(filename)
     vg_handle = hdf.vgstart()
     try:
-        selog_entries_count, total_selog_time_points = _summarise_selogs(
-            vg_handle, sd_handle
-        )
-        framelog_entries_count, total_framelog_time_points = 0, 0
+        selog_entries_count = _count_blocks(vg_handle, sd_handle)
         return NexusSummary(
             nexus_path.stat().st_size,
             _read_total_detector_counts(vg_handle, sd_handle) / 1_000_000,
             0.0,  # Muons don't have monitors
             selog_entries_count,
-            total_selog_time_points,
-            framelog_entries_count,
-            total_framelog_time_points,
+            framelog_entries_count=0,
         )
     finally:
         vg_handle.end()
@@ -77,9 +72,9 @@ def _read_total_detector_counts(vg_handle: pyhdf.V.V, sd_handle: pyhdf.SD.SD) ->
     raise ValueError(f"No dataset {COUNTS} found inside {NXDATA_CLASS}.")
 
 
-def _summarise_selogs(vg_handle: pyhdf.V.V, sd_handle: pyhdf.SD.SD) -> tuple[int, int]:
-    """Count the number of logs and log timestamps"""
-    nxlog_count, nxlog_time_points_count = 0, 0
+def _count_blocks(vg_handle: pyhdf.V.V, sd_handle: pyhdf.SD.SD) -> int:
+    """Count the number of logs"""
+    nxlog_count = 0
     ref = -1
     while True:
         try:
@@ -91,16 +86,10 @@ def _summarise_selogs(vg_handle: pyhdf.V.V, sd_handle: pyhdf.SD.SD) -> tuple[int
         try:
             if ref_handle._class == NXLOG_CLASS:
                 nxlog_count += 1
-                tag_refs = ref_handle.tagrefs()
-                for tag, tag_ref in tag_refs:
-                    if tag == HC.DFTAG_NDG:
-                        sds = sd_handle.select(sd_handle.reftoindex(tag_ref))
-                        nxlog_time_points_count += sds.get().shape[0]
-                        sds.endaccess()
         finally:
             ref_handle.detach()
 
-    return nxlog_count, nxlog_time_points_count
+    return nxlog_count
 
 
 def _top_level_vgroup(vg_handle: pyhdf.V.V, nx_class: str) -> int:

@@ -80,9 +80,7 @@ class NexusSummary:
     total_monitor_mevents: float
 
     selog_entries_count: int  # the number of IXselog entries
-    total_selog_time_points: int  # the total count of the len(block_name/value_log/time) array across all selog entries
     framelog_entries_count: int  # the number of NXcollection entries
-    total_framelog_time_points: int  # the total count of the len(block_name/time) array across all framelog entries
 
 
 @dataclass

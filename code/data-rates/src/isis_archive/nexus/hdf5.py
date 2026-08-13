@@ -40,18 +40,8 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
                 root_entry, NXMONITOR_CLASS, NXMONITOR_DATASET
             )
             / 1_000_000,
-            **dict(
-                zip(
-                    (
-                        "selog_entries_count",
-                        "total_selog_time_points",
-                        "framelog_entries_count",
-                        "total_framelog_time_points",
-                    ),
-                    _summarise_logs(root_entry, "selog")
-                    + _summarise_logs(root_entry, "framelog"),
-                )
-            ),
+            selog_entries_count=_count_blocks(root_entry, "selog"),
+            framelog_entries_count=_count_blocks(root_entry, "framelog"),
         )
 
 
@@ -74,7 +64,7 @@ def _read_total_counts(entry: h5py.Group, nx_class: str, dataset_name: str) -> i
     return int(sum([np.array(grp[dataset_name]).sum() for grp in class_groups]))
 
 
-def _summarise_logs(parent: h5py.Group, group_name: str) -> tuple[int, int]:
+def _count_blocks(parent: h5py.Group, group_name: str) -> int:
     """Inspect the selog group and return summary statistics
 
     Parameters
@@ -86,15 +76,6 @@ def _summarise_logs(parent: h5py.Group, group_name: str) -> tuple[int, int]:
 
     Returns
     -------
-    tuple(entries_count, total_time_points)
+    entries_count
     """
-    group = parent[group_name]
-    total_time_points = 0
-    for block in group.values():  # type: ignore
-        if group_name == "selog":
-            value_log = block["value_log"]
-        else:
-            value_log = block
-        total_time_points += len(value_log["time"])
-
-    return len(group), total_time_points  # type: ignore
+    return len(parent[group_name])
