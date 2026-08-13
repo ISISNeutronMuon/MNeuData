@@ -36,7 +36,6 @@ spec:
     namespace: kube-system
   hostnames:
   - hubble.compute.isis.cclrc.ac.uk
-  -
   rules:
   - matches:
     - path:
