@@ -111,6 +111,11 @@ locals {
           enabled = true
         }
       }
+      network = {
+        searchDomains = [
+          "isis.cclrc.ac.uk"
+        ]
+      }
     }
   }
 }
