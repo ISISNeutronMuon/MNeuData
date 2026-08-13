@@ -10,3 +10,6 @@ spec:
     kind: ClusterIssuer
   dnsNames:
   - compute.isis.cclrc.ac.uk
+  - s3.compute.isis.cclrc.ac.uk
+  - s3-admin.compute.isis.cclrc.ac.uk
+  - versity.compute.isis.cclrc.ac.uk
