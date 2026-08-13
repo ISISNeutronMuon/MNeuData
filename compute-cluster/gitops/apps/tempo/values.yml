@@ -1,0 +1,145 @@
+metaMonitoring:
+  serviceMonitor:
+    enabled: true
+global:
+  clusterDomain: 'cluster.local'
+reportingEnabled: false
+multitenancyEnabled: true
+storage:
+  trace:
+    backend: s3
+    s3:
+      bucket: tempo-s3
+      endpoint: s3.echo.stfc.ac.uk
+      region: RegionOne
+      access_key: ${S3_ACCESS_KEY_ID}
+      secret_key: ${S3_SECRET_ACCESS_KEY}
+      insecure: false
+metricsGenerator:
+  enabled: true
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: S3_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_ACCESS_KEY_ID
+    - name: S3_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_SECRET_ACCESS_KEY
+  config:
+    registry:
+      external_labels:
+        source: tempo
+        cluster: infra-v1
+    storage:
+      remote_write:
+        - url: http://mimir-nginx.mimir.svc.cluster.local/api/v1/push
+          send_exemplars: true
+          headers:
+            'X-Scope-OrgID': 'Observability'
+gateway:
+  enabled: true
+traces:
+  otlp:
+    http:
+      enabled: true
+distributor:
+  replicas: 2
+  config:
+    log_received_spans:
+      enabled: false
+    log_discarded_spans:
+      enabled: false
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: S3_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_ACCESS_KEY_ID
+    - name: S3_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_SECRET_ACCESS_KEY
+
+# Configure ingester
+ingester:
+  config:
+    flush_all_on_shutdown: true
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: S3_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_ACCESS_KEY_ID
+    - name: S3_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_SECRET_ACCESS_KEY
+
+# Configure compactor
+compactor:
+  compaction:
+    block_retention: 7d  # Default 7 day retention
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: S3_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_ACCESS_KEY_ID
+    - name: S3_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_SECRET_ACCESS_KEY
+
+# Configure querier
+querier:
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: S3_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_ACCESS_KEY_ID
+    - name: S3_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_SECRET_ACCESS_KEY
+
+# Configure query-frontend
+queryFrontend:
+  extraArgs:
+    - '-config.expand-env=true'
+  extraEnv:
+    - name: S3_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_ACCESS_KEY_ID
+    - name: S3_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: versity-s3-root
+          key: S3_SECRET_ACCESS_KEY
+overrides:
+  defaults:
+    metrics_generator:
+      processors:
+        - service-graphs
+        - span-metrics
+        - local-blocks
+      generate_native_histograms: both

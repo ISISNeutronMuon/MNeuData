@@ -1,83 +1,79 @@
-#global:
-#  extraEnvFrom:
-#    - secretRef:
-#        name: versity-s3-root
-#
-#ingester:
-#  replicas: 1
-#  resources:
-#    limits:
-#      memory: 12Gi
-#    requests:
-#      cpu: 3.5
-#      memory: 8Gi
-#  persistentVolume:
-#    size: 100Gi
-#
-#distributor:
-#  replicas: 1
-#  resources:
-#    limits:
-#      memory: 5.7Gi
-#    requests:
-#      cpu: 2
-#      memory: 4Gi
-#
-#compactor:
-#  resources:
-#    limits:
-#      memory: 2.1Gi
-#    requests:
-#      cpu: 1
-#      memory: 1.5Gi
-#  persistentVolume:
-#    size: 20Gi
-#
-#store_gateway:
-#  replicas: 1
-#  resources:
-#    limits:
-#      memory: 2.1Gi
-#    requests:
-#      cpu: 1
-#      memory: 1.5Gi
-#  persistentVolume:
-#    size: 10Gi
-#
-#alertmanager:
-#  enabled: false
-#
-#minio:
-#  enabled: false
-#
-#metaMonitoring:
-#  serviceMonitor:
-#    enabled: true
-#    clusterLabel: mneudata-compute
-#
-#mimir:
-#  structuredConfig:
-#    common:
-#      storage:
-#        backend: s3
-#        s3:
-#          endpoint: versitygw.versitygw.svc.cluster.local:7070
-#          region: us-east-1
-#          secret_access_key: ${S3_SECRET_ACCESS_KEY}
-#          access_key_id: ${S3_ACCESS_KEY_ID}
-#    blocks_storage:
-#      s3:
-#        bucket_name: mimir-s3
-#    ruler_storage:
-#      s3:
-#        bucket_name: mimir-ruler-s3
-#    limits:
-#      max_label_names_per_series: 100
-#      max_global_series_per_user: 1000000
-#      ingestion_rate: 50000
-#      ingestion_burst_size: 500000
-#      compactor_blocks_retention_period: 1y # Retain data for up to 1 year
-## Overrides example:
-##            overrides:
-##              FIA-Prod:
-##                retention_period: 1y
+global:
+  extraEnvFrom:
+    - secretRef:
+        name: versity-s3-root
+
+ingester:
+  replicas: 1
+  resources:
+    limits:
+      memory: 12Gi
+    requests:
+      cpu: 3.5
+      memory: 8Gi
+  persistentVolume:
+    size: 100Gi
+
+distributor:
+  replicas: 1
+  resources:
+    limits:
+      memory: 5.7Gi
+    requests:
+      cpu: 2
+      memory: 4Gi
+
+compactor:
+  resources:
+    limits:
+      memory: 2.1Gi
+    requests:
+      cpu: 1
+      memory: 1.5Gi
+  persistentVolume:
+    size: 20Gi
+
+store_gateway:
+  replicas: 1
+  resources:
+    limits:
+      memory: 2.1Gi
+    requests:
+      cpu: 1
+      memory: 1.5Gi
+  persistentVolume:
+    size: 10Gi
+
+alertmanager:
+  enabled: false
+
+minio:
+  enabled: false
+
+metaMonitoring:
+  serviceMonitor:
+    enabled: true
+    clusterLabel: mneudata-compute
+
+mimir:
+  structuredConfig:
+    common:
+      storage:
+        backend: s3
+        s3:
+          endpoint: versitygw.versitygw.svc.cluster.local:7070
+          region: us-east-1
+          secret_access_key: ${S3_SECRET_ACCESS_KEY}
+          access_key_id: ${S3_ACCESS_KEY_ID}
+    blocks_storage:
+      s3:
+        bucket_name: mimir-s3
+    ruler_storage:
+      s3:
+        bucket_name: mimir-ruler-s3
+    limits:
+      max_label_names_per_series: 100
+      max_global_series_per_user: 1000000
+      ingestion_rate: 50000
+      ingestion_burst_size: 500000
+      compactor_blocks_retention_period: 1y # Retain data for up to 1 year

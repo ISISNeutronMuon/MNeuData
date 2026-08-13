@@ -2,29 +2,27 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: loki
+  name: tempo
   namespace: argocd
-#  annotations:
-#    argocd.argoproj.io/sync-wave: "0"
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
-  project: infra
+  project: default
   sources:
-  - repoURL: https://grafana-community.github.io/helm-charts
-    targetRevision: 18.8.0
-    chart: loki
+  - repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 1.47.2
+    chart: tempo-distributed
     helm:
       valueFiles:
-      - $values/compute-cluster/gitops/apps/loki/values.yml
+        - $values/compute-cluster/gitops/apps/tempo/values.yml
   - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     ref: values
   - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
-    path: compute-cluster/gitops/components/loki
+    path: compute-cluster/gitops/components/tempo
   destination:
-    namespace: loki
+    namespace: tempo
     server: https://kubernetes.default.svc
   syncPolicy:
     automated:

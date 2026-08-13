@@ -1,30 +1,144 @@
-#cluster:
-#  name: k3s-ubuntu
-#
-## Deploy components
-#loki:
-#  enabled: true
-#  persistence:
-#    enabled: false # Use S3
-#prometheus:
-#  enabled: true
-#  persistence:
-#    enabled: false # Use S3 (via Mimir if applicable, or just keep it simple)
-#tempo:
-#  enabled: true
-#
-#grafana:
-#  enabled: true
-#  database:
-#    type: postgres
-#    host: postgres-cluster-rw.postgres-system.svc.cluster.local:5432
-#    name: grafana
-#    user: grafana
-#    password: grafana_password
-#
-## Long-term storage configuration
-## This is a simplified view; actual k8s-monitoring values structure may vary
-## depending on version, but the intent is to point to Rook S3.
-#extraConfig: |
-#  # Custom configuration for S3 storage
-#  # Loki, Mimir, Tempo settings would go here or in their respective sub-charts
+cluster:
+  name: MNeudata-Compute
+
+destinations:
+  - name: metrics-service
+    type: prometheus
+    url: https://mimir.compute.isis.cclrc.ac.uk/mneudata/api/v1/push
+    auth:
+      type: basic
+      usernameKey: username
+      passwordKey: password
+    secret:
+      create: false
+      name: mimir-basic-auth
+      namespace: monitoring-system
+
+  - name: logs-service
+    type: loki
+    url: https://loki.compute.isis.cclrc.ac.uk/mneudata/loki/api/v1/push
+    auth:
+      type: basic
+      usernameKey: username
+      passwordKey: password
+    secret:
+      create: false
+      name: loki-basic-auth
+      namespace: monitoring-system
+
+  - name: traces-service
+    type: otlp
+    protocol: http
+    url: https://tempo.compute.isis.cclrc.ac.uk/mneudata
+    auth:
+      type: basic
+      usernameKey: username
+      passwordKey: password
+    secret:
+      create: false
+      name: tempo-basic-auth
+      namespace: monitoring-system
+    metrics: {enabled: true}
+    logs: {enabled: true}
+    traces: {enabled: true}
+
+annotationAutodiscovery:
+  enabled: true
+  namespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+
+applicationObservability:
+  enabled: true
+  receivers:
+    otlp:
+      grpc:
+        enabled: true
+        port: 4317
+      http:
+        enabled: true
+        port: 4318
+  metrics:
+    filters:
+      metric:
+        - IsMatch(resource.attributes["k8s.namespace.name"], "^fia|rabbitmq-system|redpanda|security|monitoring-system$")
+      logs:
+        - IsMatch(resource.attributes["k8s.namespace.name"], "^fia|rabbitmq-system|redpanda|security|monitoring-system$")
+      traces:
+        - IsMatch(resource.attributes["k8s.namespace.name"], "^fia|rabbitmq-system|redpanda|security|monitoring-system$")
+
+autoInstrumentation:
+  enabled: false
+
+clusterEvents:
+  enabled: true
+  namespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+
+clusterMetrics:
+  enabled: true
+  cadvisor:
+    metricsTuning:
+      includeNamespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+  kube-state-metrics:
+    namespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+
+podLogs:
+  enabled: true
+  namespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+
+profiling:
+  enabled: false
+
+prometheusOperatorObjects:
+  enabled: true
+  crds:
+    deploy: true
+  probes:
+    namespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+  podMonitors:
+    namespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+  serviceMonitors:
+    namespaces: [fia, rabbitmq-system, redpanda, security, monitoring-system]
+
+alloy-metrics:
+  enabled: true
+  # The following is an example of how you would scrape an external source and pass it on from here:
+#  extraConfig: |
+#    prometheus.scrape "redpanda_external" {
+#      targets = [
+#        { __address__ = "130.246.80.191:9644" },
+#        { __address__ = "130.246.81.188:9644" },
+#        { __address__ = "130.246.81.166:9644" },
+#      ]
+#      scrape_interval = "30s"
+#      scrape_timeout  = "10s"
+#      metrics_path    = "/public_metrics"
+#      forward_to = [prometheus.relabel.redpanda_external.receiver]
+#    }
+#    prometheus.relabel "redpanda_external" {
+#      forward_to = [prometheus.remote_write.metrics_service.receiver]
+#      rule {
+#        target_label = "cluster"
+#        replacement  = "redpanda-external"
+#      }
+#    }
+
+alloy-singleton:
+  enabled: true
+
+alloy-logs:
+  enabled: true
+
+alloy-receiver:
+  enabled: true
+  alloy:
+    extraPorts:
+      - name: otlp-grpc
+        port: 4317
+        targetPort: 4317
+        protocol: TCP
+      - name: otlp-http
+        port: 4318
+        targetPort: 4318
+        protocol: TCP
+
+alloy-profiles:
+  enabled: false
