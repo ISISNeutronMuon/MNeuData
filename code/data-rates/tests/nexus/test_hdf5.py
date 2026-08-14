@@ -12,9 +12,7 @@ from isis_archive.nexus.hdf5 import RAW_DATA_1, summarise_nexus
 EXPECTED_DETECTOR_COUNTS = 3_000_000
 EXPECTED_MONITOR_COUNTS = 1_500_000  # 5e5 + 1e6
 EXPECTED_SELOG_ENTRIES = 2
-EXPECTED_SELOG_TIME_POINTS = 7  # value_log/time lengths: 3 + 4
 EXPECTED_FRAMELOG_ENTRIES = 2
-EXPECTED_FRAMELOG_TIME_POINTS = 11  # time lengths: 5 + 6
 
 
 def _add_class_group(
@@ -33,8 +31,9 @@ def _add_class_group(
 
 
 @pytest.fixture
-def nexus_file_hdf5(tmp_path: Path) -> Path:
+def nexus_file_hdf5(request, tmp_path: Path) -> Path:
     """Create a minimal ISIS-style ``.nxs`` file and return its path."""
+    include_monitors = getattr(request, "param", True)
     path = tmp_path / "TEST00001.nxs"
 
     with h5py.File(str(path), "w") as fp:
@@ -49,21 +48,22 @@ def nexus_file_hdf5(tmp_path: Path) -> Path:
             "counts",
             np.full(5, EXPECTED_DETECTOR_COUNTS / 5, dtype=np.int32),
         )
-        # Monitor data
-        _add_class_group(
-            root,
-            "monitor_1",
-            "NXmonitor",
-            "data",
-            np.array([EXPECTED_MONITOR_COUNTS * 0.75], dtype=np.int32),
-        )
-        _add_class_group(
-            root,
-            "monitor_2",
-            "NXmonitor",
-            "data",
-            np.array([EXPECTED_MONITOR_COUNTS * 0.25], dtype=np.int32),
-        )
+        # Monitor data (optional)
+        if include_monitors:
+            _add_class_group(
+                root,
+                "monitor_1",
+                "NXmonitor",
+                "data",
+                np.array([EXPECTED_MONITOR_COUNTS * 0.75], dtype=np.int32),
+            )
+            _add_class_group(
+                root,
+                "monitor_2",
+                "NXmonitor",
+                "data",
+                np.array([EXPECTED_MONITOR_COUNTS * 0.25], dtype=np.int32),
+            )
 
         # selog: each block has a value_log/time array.
         selog = root.create_group("selog")
@@ -83,12 +83,24 @@ def nexus_file_hdf5(tmp_path: Path) -> Path:
     return path
 
 
-def test_summarise_nexus(nexus_file_hdf5: Path):
+def test_summarise_nexus_with_monitors(nexus_file_hdf5: Path):
     summary = summarise_nexus(nexus_file_hdf5)
 
-    assert summary.total_detector_mevents == EXPECTED_DETECTOR_COUNTS / 1_000_000
-    assert summary.total_monitor_mevents == EXPECTED_MONITOR_COUNTS / 1_000_000
-    assert summary.monitor_count == 2
-    assert summary.monitor_time_channel_count == 1
-    assert summary.selog_entries_count == EXPECTED_SELOG_ENTRIES
-    assert summary.framelog_entries_count == EXPECTED_FRAMELOG_ENTRIES
+    assert summary.total_detector_mcounts == EXPECTED_DETECTOR_COUNTS / 1_000_000
+    assert summary.total_monitor_mcounts == EXPECTED_MONITOR_COUNTS / 1_000_000
+    assert summary.number_monitors == 2
+    assert summary.number_monitor_time_channels == 1
+    assert summary.number_selog_entries == EXPECTED_SELOG_ENTRIES
+    assert summary.number_framelog_entries == EXPECTED_FRAMELOG_ENTRIES
+
+
+@pytest.mark.parametrize("nexus_file_hdf5", [False], indirect=True)
+def test_summarise_nexus_without_monitors(nexus_file_hdf5: Path):
+    summary = summarise_nexus(nexus_file_hdf5)
+
+    assert summary.total_detector_mcounts == EXPECTED_DETECTOR_COUNTS / 1_000_000
+    assert summary.total_monitor_mcounts == 0
+    assert summary.number_monitors == 0
+    assert summary.number_monitor_time_channels == 0
+    assert summary.number_selog_entries == EXPECTED_SELOG_ENTRIES
+    assert summary.number_framelog_entries == EXPECTED_FRAMELOG_ENTRIES

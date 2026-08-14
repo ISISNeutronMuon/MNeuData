@@ -31,20 +31,20 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
     with h5py.File(str(nexus_path), "r") as fp:
         root_entry: h5py.Group = fp[RAW_DATA_1]  # type: ignore
 
-        monitor_count, total_monitor_events, monitor_time_channel_count = (
+        number_monitors, total_monitor_events, number_monitor_time_channels = (
             _summarise_monitors(root_entry)
         )
         return NexusSummary(
             file_size_bytes=nexus_path.stat().st_size,
-            total_detector_mevents=_read_total_counts(
+            total_detector_mcounts=_read_total_counts(
                 _groups_with_class(root_entry, NXDATA_CLASS), NXDATA_DATASET
             )
             / 1_000_000,
-            total_monitor_mevents=total_monitor_events / 1_000_000,
-            monitor_count=monitor_count,
-            monitor_time_channel_count=monitor_time_channel_count,
-            selog_entries_count=_count_blocks_with_name(root_entry, "selog"),
-            framelog_entries_count=_count_blocks_with_name(root_entry, "framelog"),
+            total_monitor_mcounts=total_monitor_events / 1_000_000,
+            number_monitors=number_monitors,
+            number_monitor_time_channels=number_monitor_time_channels,
+            number_selog_entries=_count_blocks_with_name(root_entry, "selog"),
+            number_framelog_entries=_count_blocks_with_name(root_entry, "framelog"),
         )
 
 
@@ -54,12 +54,15 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
 def _summarise_monitors(parent: h5py.Group) -> tuple[int, int, int]:
     """Return summary information on the monitors"""
     monitors = list(_groups_with_class(parent, NXMONITOR_CLASS))
-
-    return (
-        len(monitors),
-        _read_total_counts(monitors, NXMONITOR_DATASET),
-        np.array(monitors[0][NXMONITOR_DATASET]).size,
-    )
+    if (number_monitors := len(monitors)) > 0:
+        # Assume all monitors have the same number of time channels
+        return (
+            number_monitors,
+            _read_total_counts(monitors, NXMONITOR_DATASET),
+            np.array(monitors[0][NXMONITOR_DATASET]).size,
+        )
+    else:
+        return 0, 0, 0
 
 
 def _groups_with_class(parent: h5py.Group, nx_class: str) -> list[h5py.Group]:

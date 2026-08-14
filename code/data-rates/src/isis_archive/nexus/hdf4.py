@@ -43,7 +43,7 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
             0,  # Muons don't have monitors
             0,  # Muons don't have monitors
             selog_entries_count,
-            framelog_entries_count=0,
+            number_framelog_entries=0,
         )
     finally:
         vg_handle.end()

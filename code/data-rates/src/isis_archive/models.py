@@ -60,6 +60,7 @@ class JournalEntry:
     total_mevents: float
     event_mode: float
     number_periods: int
+    number_time_regimes: int
 
     number_spectra: int
     number_detectors: int
@@ -76,14 +77,14 @@ class NexusSummary:
 
     file_size_bytes: int
 
-    total_detector_mevents: float
-    total_monitor_mevents: float
+    total_detector_mcounts: float
+    total_monitor_mcounts: float
 
-    monitor_count: int
-    monitor_time_channel_count: int
+    number_monitors: int
+    number_monitor_time_channels: int
 
-    selog_entries_count: int  # the number of IXselog entries
-    framelog_entries_count: int  # the number of NXcollection entries
+    number_selog_entries: int  # the number of IXselog entries
+    number_framelog_entries: int  # the number of NXcollection entries
 
 
 @dataclass
