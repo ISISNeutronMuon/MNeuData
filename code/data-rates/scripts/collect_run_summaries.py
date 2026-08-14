@@ -62,7 +62,9 @@ def collect_summaries(
     journals = discover_journals(root, beamlines, cycle_pattern)
     if should_skip_cycle is not None:
         journals = list(
-            filter(lambda j: should_skip_cycle(j.beamline, j.cycle_suffix), journals)
+            filter(
+                lambda j: not should_skip_cycle(j.beamline, j.cycle_suffix), journals
+            )
         )
         logger.debug(f"Using {len(journals)} journal file(s) after applying filters.")
 
@@ -103,7 +105,7 @@ def collect_summaries(
 
 
 def _should_skip_cycle(beamline: str, cycle_suffix: str, output_dir: Path) -> bool:
-    should_skip = not (output_dir / pq_filename(beamline, cycle_suffix)).exists()
+    should_skip = (output_dir / pq_filename(beamline, cycle_suffix)).exists()
     if should_skip:
         logger.info(f"Skipping {beamline}_{cycle_suffix}. Output file already exists.")
     return should_skip
