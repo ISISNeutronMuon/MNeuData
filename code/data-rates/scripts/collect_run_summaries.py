@@ -44,6 +44,7 @@ def collect_summaries(
     max_workers: int | None = None,
     limit_per_worker: int | None = None,
     skip_nexus: bool = False,
+    progress: bool = False,
 ) -> list[RunSummary]:
     """Walk the root directory and build a list of :class:`RunSummary`.
 
@@ -69,7 +70,12 @@ def collect_summaries(
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_journal = {
             executor.submit(
-                summarise_journal, root, journal, limit_per_worker, skip_nexus
+                summarise_journal,
+                root,
+                journal,
+                limit_per_worker,
+                skip_nexus,
+                progress,
             ): journal
             for journal in journals
         }
@@ -97,7 +103,10 @@ def collect_summaries(
 
 
 def _should_skip_cycle(beamline: str, cycle_suffix: str, output_dir: Path) -> bool:
-    return not (output_dir / pq_filename(beamline, cycle_suffix)).exists()
+    should_skip = not (output_dir / pq_filename(beamline, cycle_suffix)).exists()
+    if should_skip:
+        logger.info(f"Skipping {beamline}_{cycle_suffix}. Output file already exists.")
+    return should_skip
 
 
 def _validate_cycle_pattern(
@@ -188,6 +197,16 @@ def _validate_cycle_pattern(
         "debug) files. All NeXus-derived fields are written as null."
     ),
 )
+@click.option(
+    "--progress",
+    is_flag=True,
+    default=True,
+    help=(
+        "Show a per-run progress counter (processed/total) for each cycle on "
+        "stderr. Counters from different workers may interleave when "
+        "--max-workers > 1."
+    ),
+)
 def main(
     root: Path,
     output_dir: Path,
@@ -198,6 +217,7 @@ def main(
     log_level: str,
     force: bool,
     skip_nexus: bool,
+    progress: bool,
 ) -> None:
     logging.basicConfig(
         level=log_level.upper(),
@@ -218,6 +238,7 @@ def main(
         max_workers=max_workers,
         limit_per_worker=limit_per_worker,
         skip_nexus=skip_nexus,
+        progress=progress,
     )
 
     click.echo(f"\nParsed {len(summaries)} run(s).", err=True)
