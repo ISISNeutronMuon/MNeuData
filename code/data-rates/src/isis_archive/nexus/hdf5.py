@@ -30,27 +30,45 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
     """
     with h5py.File(str(nexus_path), "r") as fp:
         root_entry: h5py.Group = fp[RAW_DATA_1]  # type: ignore
+
+        monitor_count, total_monitor_events, monitor_time_channel_count = (
+            _summarise_monitors(root_entry)
+        )
         return NexusSummary(
             file_size_bytes=nexus_path.stat().st_size,
             total_detector_mevents=_read_total_counts(
-                root_entry, NXDATA_CLASS, NXDATA_DATASET
+                _groups_with_class(root_entry, NXDATA_CLASS), NXDATA_DATASET
             )
             / 1_000_000,
-            total_monitor_mevents=_read_total_counts(
-                root_entry, NXMONITOR_CLASS, NXMONITOR_DATASET
-            )
-            / 1_000_000,
-            selog_entries_count=_count_blocks(root_entry, "selog"),
-            framelog_entries_count=_count_blocks(root_entry, "framelog"),
+            total_monitor_mevents=total_monitor_events / 1_000_000,
+            monitor_count=monitor_count,
+            monitor_time_channel_count=monitor_time_channel_count,
+            selog_entries_count=_count_blocks_with_name(root_entry, "selog"),
+            framelog_entries_count=_count_blocks_with_name(root_entry, "framelog"),
         )
 
 
 # ----------------------------------------------------------
 # private
 # ----------------------------------------------------------
+def _summarise_monitors(parent: h5py.Group) -> tuple[int, int, int]:
+    """Return summary information on the monitors"""
+    monitors = list(_groups_with_class(parent, NXMONITOR_CLASS))
+
+    return (
+        len(monitors),
+        _read_total_counts(monitors, NXMONITOR_DATASET),
+        np.array(monitors[0][NXMONITOR_DATASET]).size,
+    )
 
 
-def _read_total_counts(entry: h5py.Group, nx_class: str, dataset_name: str) -> int:
+def _groups_with_class(parent: h5py.Group, nx_class: str) -> list[h5py.Group]:
+    return list(
+        filter(lambda x: x.attrs.get("NX_class") == nx_class.encode(), parent.values())
+    )
+
+
+def _read_total_counts(groups: list[h5py.Group], dataset_name: str) -> int:
     """Read and sum the array given by the groups with the given NXClass and dataset name.
 
     Parameters
@@ -58,24 +76,9 @@ def _read_total_counts(entry: h5py.Group, nx_class: str, dataset_name: str) -> i
     entry:
         A group that is the parent of entries of ``nx_class``.
     """
-    class_groups = filter(
-        lambda x: x.attrs.get("NX_class") == nx_class.encode(), entry.values()
-    )
-    return int(sum([np.array(grp[dataset_name]).sum() for grp in class_groups]))
+    return int(sum([np.array(grp[dataset_name]).sum() for grp in groups]))
 
 
-def _count_blocks(parent: h5py.Group, group_name: str) -> int:
-    """Inspect the selog group and return summary statistics
-
-    Parameters
-    ----------
-    entry:
-        A group that is the parent of entries of NXClass
-    group_name:
-        Name of the log group
-
-    Returns
-    -------
-    entries_count
-    """
+def _count_blocks_with_name(parent: h5py.Group, group_name: str) -> int:
+    """Counts numbers of child entries within the named group"""
     return len(parent[group_name])

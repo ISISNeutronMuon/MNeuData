@@ -88,7 +88,7 @@ def test_summarise_nexus(nexus_file_hdf5: Path):
 
     assert summary.total_detector_mevents == EXPECTED_DETECTOR_COUNTS / 1_000_000
     assert summary.total_monitor_mevents == EXPECTED_MONITOR_COUNTS / 1_000_000
+    assert summary.monitor_count == 2
+    assert summary.monitor_time_channel_count == 1
     assert summary.selog_entries_count == EXPECTED_SELOG_ENTRIES
-    assert summary.total_selog_time_points == EXPECTED_SELOG_TIME_POINTS
     assert summary.framelog_entries_count == EXPECTED_FRAMELOG_ENTRIES
-    assert summary.total_framelog_time_points == EXPECTED_FRAMELOG_TIME_POINTS

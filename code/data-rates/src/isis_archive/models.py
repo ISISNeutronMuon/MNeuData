@@ -79,6 +79,9 @@ class NexusSummary:
     total_detector_mevents: float
     total_monitor_mevents: float
 
+    monitor_count: int
+    monitor_time_channel_count: int
+
     selog_entries_count: int  # the number of IXselog entries
     framelog_entries_count: int  # the number of NXcollection entries
 
