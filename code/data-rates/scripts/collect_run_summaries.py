@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #     "click>=8.4.2",
-#     "isis-archive",
+#     "isis-archive[hdf5,hdf4]",
 # ]
 #
 # [tool.uv.sources]
