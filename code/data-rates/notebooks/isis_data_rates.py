@@ -21,7 +21,7 @@ def _():
     return REPO_DATA_DIR, RUN_SUMMARY_DIR, mo
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(REPO_DATA_DIR, mo):
     _df = mo.sql(
         f"""
@@ -49,8 +49,9 @@ def _(RUN_SUMMARY_DIR, mo):
             SELECT
                 beamline,
                 run_number,
-                cycle,
+                "cycle",
             	title,
+                event_mode,
                 frame_sync,
                 raw_frames,
                 good_frames,
@@ -70,7 +71,7 @@ def _(RUN_SUMMARY_DIR, mo):
                 AND journal_total_mevents >= (total_detector_mevents + total_monitor_mevents)
         );
 
-        -- select * from run_summary where beamline = 'HRPD' order by framerate_hz asc;
+        -- select * from run_summary where beamline = 'WISH' and event_mode > 0
         """
     )
     return
@@ -92,15 +93,41 @@ def _():
     reference_time_bits = 64  # single frame
     ev44_header_bits = source_name_bits + message_id_bits + reference_time_bits
 
-    reference_time_index = 32
-    time_of_flight = 32
-    pixel_id = 32
-    ev44_per_event_bits = reference_time_index + time_of_flight + pixel_id
+    reference_time_index_bits = 32
+    time_of_flight_bits = 32
+    pixel_id_bits = 32
+    ev44_per_event_bits = reference_time_index_bits + time_of_flight_bits + pixel_id_bits
 
-    print("---- Data sizes ----")
-    print(f"ev44_header_bits = {ev44_header_bits} bit")
-    print(f"ev44_per_event_bits = {ev44_per_event_bits} bit")
-    return ev44_header_bits, ev44_per_event_bits
+    print("---- Event streaming data sizes ----")
+    print(f"  ev44_header_bits = {ev44_header_bits} bit")
+    print(f"  ev44_per_event_bits = {ev44_per_event_bits} bit")
+    print("-----------------------------------")
+
+    # ---------------------
+    # NeXus information
+    # ---------------------
+    # per frame
+    event_index_bits = 64
+    event_time_zero_bits = 64
+
+    # per-event
+    event_id_bits = 32
+    event_time_offset_bits = 32
+
+    # legacy fields
+    event_frame_number_bits = 32
+    event_time_bins = 32
+
+    # compression
+    compress_ratio = 1
+    return (
+        ev44_header_bits,
+        ev44_per_event_bits,
+        event_id_bits,
+        event_index_bits,
+        event_time_offset_bits,
+        event_time_zero_bits,
+    )
 
 
 @app.cell
@@ -108,41 +135,81 @@ def _(ev44_header_bits, ev44_per_event_bits, mo, run_summary):
     _df = mo.sql(
         f"""
         CREATE OR REPLACE MACRO to_mbits_sec (framerate_hz, mevts_per_frame) AS framerate_hz * (
-            ({ev44_header_bits} / 1_000_000) + mevts_per_frame * {ev44_per_event_bits}
+            ({ev44_header_bits} + 1e6 * mevts_per_frame * {ev44_per_event_bits}) / 1e6
         );
 
         CREATE OR REPLACE TABLE data_rates AS (
             SELECT
                 beamline,
                 run_number,
+            	"cycle",
                 framerate_hz,
-                TO_MBITS_SEC(framerate_hz, total_detector_mevents / good_frames) AS det_mbits_sec,
-                TO_MBITS_SEC(framerate_hz, total_monitor_mevents / good_frames) AS mon_mbits_sec,
+        	    (total_detector_mevents / good_frames) AS detector_mevents_per_frame,
+        	    (total_monitor_mevents / good_frames) AS monitor_mevents_per_frame,
+                TO_MBITS_SEC (
+                    framerate_hz,
+                    detector_mevents_per_frame
+                ) AS detector_mbits_sec,
+                TO_MBITS_SEC (framerate_hz, total_monitor_mevents / good_frames) AS monitor_mbits_sec,
             FROM
                 run_summary
         );
+
+        -- select * from data_rates where beamline='WISH' and run_number = 48120;
         """
     )
     return
 
 
 @app.cell
-def _(beamline, data_rates, mo):
+def _(
+    data_rates,
+    event_id_bits,
+    event_index_bits,
+    event_time_offset_bits,
+    event_time_zero_bits,
+    mo,
+):
     _df = mo.sql(
         f"""
+        CREATE OR REPLACE MACRO nexus_mbytes_hr (framerate_hz, mevts_per_frame) AS (
+            (
+                3600 * framerate_hz * (
+                    ({event_index_bits} + {event_time_zero_bits}) + 1e6 * mevts_per_frame * ({event_id_bits} + {event_time_offset_bits})
+                )
+            ) / 8 / 1024 ** 2
+        );
+
         SELECT
-            d.beamline,
-            MIN(d.framerate_hz) AS min_framerate_hz,
-            MAX(d.framerate_hz) AS max_framerate_hz,
-            MAX(det_mbits_sec) AS max_det_mbits_sec,
-            QUANTILE(det_mbits_sec, 0.999) AS p999_det_mbits_sec,
-            MAX(mon_mbits_sec) AS max_mon_mbits_sec,
-            QUANTILE(mon_mbits_sec, 0.999) AS p999_mon_mbits_sec
+            beamline,
+            round(detector_mbits_sec, 4) as max_det_mbits_sec,
+            round(monitor_mbits_sec, 4) as max_mon_mbits_sec,
+            round(
+                NEXUS_MBYTES_HR (framerate_hz, detector_mevents_per_frame) / 1024,
+                4
+            )  as nxs_detector_gbytes_hr,
+            round(
+                NEXUS_MBYTES_HR (framerate_hz, monitor_mevents_per_frame) / 1024,
+                4
+            ) as nxs_monitor_gbytes_hr,
+            run_number,
+            "cycle",
+            framerate_hz
         FROM
-            data_rates d
-        JOIN beamline b ON d.beamline = b.beamline
-        GROUP BY
-            d.beamline
+            (
+                SELECT
+                    *,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY
+                            beamline
+                        ORDER BY
+                            detector_mbits_sec DESC
+                    ) AS _rn
+                FROM
+                    data_rates d
+            )
+        WHERE
+            _rn = 1;
         """
     )
     return
