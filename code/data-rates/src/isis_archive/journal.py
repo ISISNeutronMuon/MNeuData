@@ -80,42 +80,22 @@ def summarise_journal(
     journal: DiscoveredJournal,
     limit: int | None,
     skip_nexus: bool = False,
-    progress: bool = False,
 ) -> list[RunSummary]:
     """Summarise a :class:`RunSummary` for each entry in a single journal file.
 
     When ``skip_nexus`` is ``True`` the associated NeXus (and ICP debug) files
     are not opened; the NeXus-derived fields are left unpopulated.
 
-    When ``progress`` is ``True`` a per-run counter (``processed/total``) for
-    this cycle is written to ``stderr``.
     """
     entries = list(parse_journal(journal.path))
-    total = len(entries) if limit is None else min(limit, len(entries))
 
     summaries = []
     for journal_entry in entries:
         summaries.append(summarise_run(root, journal, journal_entry, skip_nexus))
-        if progress:
-            _report_progress(journal, len(summaries), total)
         if limit is not None and len(summaries) == limit:
             break
 
-    if progress and total:
-        # Terminate the in-place progress line for this cycle.
-        print(file=sys.stderr)
-
     return summaries
-
-
-def _report_progress(journal: DiscoveredJournal, processed: int, total: int) -> None:
-    """Write an in-place ``processed/total`` counter for a cycle to stderr."""
-    print(
-        f"\r{journal.beamline} {journal.cycle_suffix}: {processed}/{total}",
-        end="",
-        flush=True,
-        file=sys.stderr,
-    )
 
 
 def summarise_run(

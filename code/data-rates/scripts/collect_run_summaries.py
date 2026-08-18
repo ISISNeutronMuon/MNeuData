@@ -44,7 +44,6 @@ def collect_summaries(
     max_workers: int | None = None,
     limit_per_worker: int | None = None,
     skip_nexus: bool = False,
-    progress: bool = False,
 ) -> list[RunSummary]:
     """Walk the root directory and build a list of :class:`RunSummary`.
 
@@ -77,7 +76,6 @@ def collect_summaries(
                 journal,
                 limit_per_worker,
                 skip_nexus,
-                progress,
             ): journal
             for journal in journals
         }
@@ -199,16 +197,6 @@ def _validate_cycle_pattern(
         "debug) files. All NeXus-derived fields are written as null."
     ),
 )
-@click.option(
-    "--progress",
-    is_flag=True,
-    default=True,
-    help=(
-        "Show a per-run progress counter (processed/total) for each cycle on "
-        "stderr. Counters from different workers may interleave when "
-        "--max-workers > 1."
-    ),
-)
 def main(
     root: Path,
     output_dir: Path,
@@ -219,7 +207,6 @@ def main(
     log_level: str,
     force: bool,
     skip_nexus: bool,
-    progress: bool,
 ) -> None:
     logging.basicConfig(
         level=log_level.upper(),
@@ -240,7 +227,6 @@ def main(
         max_workers=max_workers,
         limit_per_worker=limit_per_worker,
         skip_nexus=skip_nexus,
-        progress=progress,
     )
 
     click.echo(f"\nParsed {len(summaries)} run(s).", err=True)
