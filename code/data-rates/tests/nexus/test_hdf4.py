@@ -13,10 +13,15 @@ is skipped when pyhdf is not usable.
 from pathlib import Path
 
 import numpy as np
-import pyhdf.HDF
 import pytest
-from pyhdf.HDF import HC, HDF
-from pyhdf.SD import SD, SDC
+
+try:
+    import pyhdf.HDF
+    import pytest
+    from pyhdf.HDF import HC, HDF
+    from pyhdf.SD import SD, SDC
+except ImportError:
+    pytest.skip("Error importing pyhdf. Skipping tests", allow_module_level=True)
 
 from isis_archive.models import NexusSummary
 from isis_archive.nexus.constants import NXDATA_CLASS, NXENTRY_CLASS, NXLOG_CLASS

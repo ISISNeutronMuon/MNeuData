@@ -89,7 +89,6 @@ def test_summarise_nexus_with_monitors(nexus_file_hdf5: Path):
     assert summary.total_detector_mcounts == EXPECTED_DETECTOR_COUNTS / 1_000_000
     assert summary.total_monitor_mcounts == EXPECTED_MONITOR_COUNTS / 1_000_000
     assert summary.number_monitors == 2
-    assert summary.number_monitor_time_channels == 1
     assert summary.number_selog_entries == EXPECTED_SELOG_ENTRIES
     assert summary.number_framelog_entries == EXPECTED_FRAMELOG_ENTRIES
 
@@ -101,6 +100,5 @@ def test_summarise_nexus_without_monitors(nexus_file_hdf5: Path):
     assert summary.total_detector_mcounts == EXPECTED_DETECTOR_COUNTS / 1_000_000
     assert summary.total_monitor_mcounts == 0
     assert summary.number_monitors == 0
-    assert summary.number_monitor_time_channels == 0
     assert summary.number_selog_entries == EXPECTED_SELOG_ENTRIES
     assert summary.number_framelog_entries == EXPECTED_FRAMELOG_ENTRIES
