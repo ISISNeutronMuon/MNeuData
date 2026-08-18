@@ -3,83 +3,77 @@ from __future__ import annotations
 import logging
 from dataclasses import fields
 from pathlib import Path
-from typing import cast
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from .models import ICP, JournalEntry, NexusIOError, NexusSummary, RunSummary
+from .models import ICP, NexusIOError, NexusSummary, RunSummary
 
 logger = logging.getLogger("isis_archive")
 
 
-def pq_filename(beamline: str, cycle: str) -> str:
+def pq_filename(beamline: str, cycle: str, kind: str) -> str:
     """Build the parquet filename for a beamline/cycle group."""
-    return f"{beamline}_{cycle}.parquet"
+    return f"{beamline}_{cycle}_{kind}.parquet"
 
 
 def write_cycle_files(
     beamline: str, cycle: str, summaries: list[RunSummary], output: Path
 ):
-    """Write summary information as a parquet file and any failed nexus reads separately"""
+    """Write summary information as a parquet files and any failed nexus reads separately
+
+    Journal information and NeXus information gets written separately to different files.
+    """
 
     output.mkdir(parents=True, exist_ok=True)
-    pq_path = output / pq_filename(beamline, cycle)
+    journal_records, nexus_records, failed_nexus_reads, icp_records = [], [], [], []
+    for summary in summaries:
+        journal_records.append(_to_record(summary, summary.journal))
+        if isinstance(summary.nexus, NexusSummary):
+            nexus_records.append(_to_record(summary, summary.nexus))
+        elif isinstance(summary.nexus, NexusIOError):
+            failed_nexus_reads.append(_to_record(summary, summary.nexus))
+        if isinstance(summary.icp, ICP):
+            icp_records.append(_to_record(summary, summary.icp))
 
-    records = [_to_record(summary) for summary in summaries]
-    pq.write_table(
-        pa.Table.from_pylist(records),
-        str(output / pq_filename(beamline, cycle)),
-    )
+    _write_pq(journal_records, output / pq_filename(beamline, cycle, "journal"))
 
-    logger.info(f"Wrote {len(records)} run(s) to {pq_path}")
-    write_failed_nexus_read_log(beamline, cycle, summaries, output)
+    if len(nexus_records) > 0:
+        _write_pq(nexus_records, output / pq_filename(beamline, cycle, "nexus"))
+
+    if len(failed_nexus_reads) > 0:
+        _write_pq(
+            failed_nexus_reads,
+            output / pq_filename(beamline, cycle, "nexus_failed"),
+        )
+
+    if len(icp_records) > 0:
+        _write_pq(icp_records, output / pq_filename(beamline, cycle, "icp"))
 
 
-def _to_record(summary: RunSummary) -> dict:
-    """Serialize a summary as a JSON record"""
+# -----------------------------------------------------------------------------
+# Private
+# -----------------------------------------------------------------------------
 
-    def field_or_none(obj, field: str):
-        return getattr(obj, field) if has_nexus else None
 
-    has_nexus = isinstance(summary.nexus, NexusSummary)
+def _to_record(summary: RunSummary, model) -> dict:
+    """Serialize a model from the RunSummary as a dict"""
+
     return {
         # primary key
         "beamline": summary.beamline,
         "cycle": summary.cycle,
-        # journal fields
-        "journal_filename": str(summary.journal_file),
-        **{
-            field.name: getattr(summary.journal, field.name)
-            for field in fields(JournalEntry)
-        },
-        # nexus fields
-        "nexus_filename": (
-            str(summary.nexus_file) if summary.nexus_file is not None else None
-        ),
-        **{
-            field.name: field_or_none(summary.nexus, field.name)
-            for field in fields(NexusSummary)
-        },
-        # icp_debug
-        **{field.name: field_or_none(summary.icp, field.name) for field in fields(ICP)},
+        "run_number": summary.run_number,
+        # model fields
+        **{field.name: getattr(model, field.name) for field in fields(model.__class__)},
     }
 
 
-def failed_nexus_log_filename(beamline: str, cycle: str) -> str:
-    return f"{beamline}_{cycle}_failed_nexus_reads.txt"
-
-
-def write_failed_nexus_read_log(
-    beamline: str, cycle: str, summaries: list[RunSummary], output: Path
-) -> None:
-    """Dump the paths of any failed NeXus reads for a single cycle to a file."""
-    failures = [s for s in summaries if isinstance(s.nexus, NexusIOError)]
-    if not failures:
-        return
-
-    output_file = output / failed_nexus_log_filename(beamline, cycle)
-    with open(output_file, "w") as fp:
-        fp.write("\n".join(cast(NexusIOError, s.nexus).message for s in failures))
-
-    logger.info(f"Wrote {len(failures)} failed NeXus read(s) to {output_file}")
+def _write_pq(records: list[dict], filepath: Path):
+    """Write records to .parquet file."""
+    if len(records) > 0:
+        pq.write_table(
+            pa.Table.from_pylist(records),
+            str(filepath),
+        )
+    logger.info(f"Wrote {len(records)} run(s) to {filepath}")

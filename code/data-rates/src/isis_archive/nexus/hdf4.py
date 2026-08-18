@@ -37,6 +37,7 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
     try:
         selog_entries_count = _count_blocks(vg_handle, sd_handle)
         return NexusSummary(
+            nexus_path.name,
             nexus_path.stat().st_size,
             _read_total_detector_counts(vg_handle, sd_handle) / 1_000_000,
             0.0,  # Muons don't have monitors

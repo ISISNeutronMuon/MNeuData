@@ -103,7 +103,7 @@ def collect_summaries(
 
 
 def _should_skip_cycle(beamline: str, cycle_suffix: str, output_dir: Path) -> bool:
-    should_skip = (output_dir / pq_filename(beamline, cycle_suffix)).exists()
+    should_skip = (output_dir / pq_filename(beamline, cycle_suffix, "journal")).exists()
     if should_skip:
         logger.info(f"Skipping {beamline}_{cycle_suffix}. Output file already exists.")
     return should_skip

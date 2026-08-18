@@ -1,7 +1,6 @@
 """Utility code for parsing ISIS journals."""
 
 import logging
-import sys
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from dataclasses import fields
@@ -69,6 +68,7 @@ def parse_journal(journal_path: Path) -> Iterator[JournalEntry]:
                 value = text
             journal_fields[field.name] = value
 
+        journal_fields["filename"] = journal_path.name
         entry_count += 1
         yield JournalEntry(**journal_fields)
 
@@ -115,8 +115,7 @@ def summarise_run(
         return RunSummary(
             journal.beamline,
             journal.cycle_suffix,
-            journal.path.relative_to(root),
-            None,
+            journal_entry.run_number,
             journal_entry,
             None,
             None,
@@ -132,9 +131,7 @@ def summarise_run(
         )
         nexus_summary = summarise_nexus(nexus_file)
     except FileNotFoundError:
-        nexus_summary = NexusIOError(
-            f"NeXus file missing for {journal.beamline} run number {journal_entry.run_number}"
-        )
+        nexus_summary = NexusIOError("NeXus file missing")
     except (KeyError, RuntimeError) as exc:
         logger.exception(f"{nexus_file}")
         nexus_summary = NexusIOError(f"{nexus_file}: {exc}")
@@ -157,8 +154,7 @@ def summarise_run(
     return RunSummary(
         journal.beamline,
         journal.cycle_suffix,
-        journal.path.relative_to(root),
-        nexus_file.relative_to(root) if nexus_file is not None else None,
+        journal_entry.run_number,
         journal_entry,
         nexus_summary,
         icp,

@@ -35,6 +35,7 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
             _summarise_monitors(root_entry)
         )
         return NexusSummary(
+            filename=nexus_path.name,
             file_size_bytes=nexus_path.stat().st_size,
             total_detector_mcounts=_read_total_counts(
                 _groups_with_class(root_entry, NXDATA_CLASS), NXDATA_DATASET

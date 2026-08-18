@@ -67,6 +67,8 @@ class JournalEntry:
 
     frame_sync: str
 
+    filename: str
+
     # optional fields
     title: str = ""
 
@@ -75,6 +77,7 @@ class JournalEntry:
 class NexusSummary:
     """Summary information derivied from an ISIS NeXus file."""
 
+    filename: str
     file_size_bytes: int
 
     total_detector_mcounts: float
@@ -103,11 +106,10 @@ class RunSummary:
     from the associated HDF5/HDF4 file.
     """
 
-    # Provenance / linkage
+    # primary key
     beamline: str
     cycle: str
-    journal_file: Path
-    nexus_file: Path | None
+    run_number: int
 
     # Journal-derived attributes.
     journal: JournalEntry
