@@ -61,6 +61,7 @@ class JournalEntry:
     event_mode: float
     number_periods: int
     number_time_regimes: int
+    number_time_channels: list[int]
 
     number_spectra: int
     number_detectors: int
@@ -84,7 +85,6 @@ class NexusSummary:
     total_monitor_mcounts: float
 
     number_monitors: int
-    number_monitor_time_channels: int
 
     number_selog_entries: int  # the number of IXselog entries
     number_framelog_entries: int  # the number of NXcollection entries

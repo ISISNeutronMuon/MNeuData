@@ -72,7 +72,6 @@ def collect_summaries(
         future_to_journal = {
             executor.submit(
                 summarise_journal,
-                root,
                 journal,
                 limit_per_worker,
                 skip_nexus,

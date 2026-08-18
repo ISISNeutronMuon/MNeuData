@@ -42,7 +42,6 @@ def summarise_nexus(nexus_path: Path) -> NexusSummary:
             _read_total_detector_counts(vg_handle, sd_handle) / 1_000_000,
             0.0,  # Muons don't have monitors
             0,  # Muons don't have monitors
-            0,  # Muons don't have monitors
             selog_entries_count,
             number_framelog_entries=0,
         )

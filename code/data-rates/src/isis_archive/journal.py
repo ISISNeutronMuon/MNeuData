@@ -21,11 +21,13 @@ JOURNAL_NAMESPACE = "http://definition.nexusformat.org/schema/3.0"
 # Map a dataclass field's type annotation to a converter callable used on the
 # stripped XML element text. Because ``from __future__ import annotations`` is
 # active, ``dataclasses.Field.type`` is the annotation *string* (e.g. "int").
-_TYPE_CONVERTERS = {
+_TYPE_CONVERTERS: dict[str, type[int | float | str]] = {
     "int": int,
     "float": float,
     "str": str,
 }
+_SKIP_FIELDS = ("filename",)
+_TIME_REGIMES_FIELD = "number_time_channels"
 
 
 def parse_journal(journal_path: Path) -> Iterator[JournalEntry]:
@@ -44,29 +46,18 @@ def parse_journal(journal_path: Path) -> Iterator[JournalEntry]:
     root = tree.getroot()
     entry_count = 0
     for entry in root:
-        if _tag_localname(entry.tag) != "NXentry":
-            continue
-
-        children = {_tag_localname(child.tag): child for child in entry}
-
         journal_fields = {}
-        for field in fields(JournalEntry):
-            child = children.get(field.name)
-            if child is None:
-                continue
-            text = (child.text or "").strip()
-            if not text:
-                continue
-            convert = _TYPE_CONVERTERS.get(cast(str, field.type), str)
-            try:
-                value = convert(text)
-            except (TypeError, ValueError):
-                logger.debug(
-                    f"Could not convert {text!r} for field {field.name} in "
-                    f"{entry.get('name')}; keeping raw text"
+        for field in filter(lambda x: x.name not in _SKIP_FIELDS, fields(JournalEntry)):
+            if field.name != _TIME_REGIMES_FIELD:
+                journal_fields[field.name] = _field_value_or_error(
+                    entry, field.name, cast(str, field.type)
                 )
-                value = text
-            journal_fields[field.name] = value
+            else:
+                time_regimes = entry.findall(f"{{{JOURNAL_NAMESPACE}}}IXtime_regime")
+                journal_fields[field.name] = [
+                    _field_value_or_error(child, field.name, "int")
+                    for child in time_regimes
+                ]
 
         journal_fields["filename"] = journal_path.name
         entry_count += 1
@@ -76,7 +67,6 @@ def parse_journal(journal_path: Path) -> Iterator[JournalEntry]:
 
 
 def summarise_journal(
-    root: Path,
     journal: DiscoveredJournal,
     limit: int | None,
     skip_nexus: bool = False,
@@ -91,7 +81,7 @@ def summarise_journal(
 
     summaries = []
     for journal_entry in entries:
-        summaries.append(summarise_run(root, journal, journal_entry, skip_nexus))
+        summaries.append(summarise_run(journal, journal_entry, skip_nexus))
         if limit is not None and len(summaries) == limit:
             break
 
@@ -99,7 +89,6 @@ def summarise_journal(
 
 
 def summarise_run(
-    root: Path,
     journal: DiscoveredJournal,
     journal_entry: JournalEntry,
     skip_nexus: bool = False,
@@ -161,6 +150,21 @@ def summarise_run(
     )
 
 
-def _tag_localname(tag: str) -> str:
-    """Return the local (namespace-stripped) name of an XML tag."""
-    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
+# -----------------------------------------------------------------------------
+# Private
+# -----------------------------------------------------------------------------
+def _field_value_or_error(xml_element: ET.Element, field_name: str, field_type: str):
+    child = xml_element.find(f"{{{JOURNAL_NAMESPACE}}}{field_name}")
+    if child is None:
+        raise ValueError(f"Missing journal field entry {field_name}.")
+
+    text = child.text
+    if text is None:
+        raise ValueError(
+            f"XML element {xml_element.tag} contains entry {field_name} but has an empty value."
+        )
+
+    try:
+        return _TYPE_CONVERTERS.get(cast(str, field_type), str)(text)
+    except (TypeError, ValueError):
+        raise ValueError(f"Could not convert {text} for field {field_name}")
