@@ -24,13 +24,16 @@ def _():
 def _(REPO_DATA_DIR, mo):
     _df = mo.sql(
         f"""
-        -- Static data
+        -- Repo, static data
         CREATE OR REPLACE TABLE beamline AS (
             SELECT
                 beamline,
                 target_station
             FROM
                 read_json('{REPO_DATA_DIR}/beamline.json')
+        );
+        CREATE OR REPLACE TABLE endeavour AS (
+            SELECT * from READ_JSON('{REPO_DATA_DIR}/endeavour.json')
         );
         """
     )
@@ -99,15 +102,13 @@ def _():
     #   - a single Event44Message per ISIS frame
     #   - source_name assumes a maximum char length=16
     # ---------------------
-    source_name_bits = 16 * 8
-    message_id_bits = 64
-    reference_time_bits = 64  # single frame
-    ev44_header_bits = source_name_bits + message_id_bits + reference_time_bits
+    ev44_source_name_bits = 16 * 8
+    ev44_message_id_bits = 64
+    ev44_ref_time_bits = 64  # single frame
+    ev44_ref_time_index_bits = 32
 
-    reference_time_index_bits = 32
-    time_of_flight_bits = 32
-    pixel_id_bits = 32
-    ev44_per_event_bits = reference_time_index_bits + time_of_flight_bits + pixel_id_bits
+    ev44_tof_bits = 32
+    ev44_pixel_id_bits = 32
 
     # ---------------------
     # NeXus information
@@ -115,36 +116,50 @@ def _():
     # Compression numbers were produced by checking a few files and looking at `dataset.nbytes()/dataset.id.get_storage_size()`
 
     # per frame
-    event_index_bits = 64
-    event_time_zero_bits = 64
-    per_frame_compression_ratio = 2.5
+    nxs_event_index_bits = 64
+    nxs_event_time_zero_bits = 64
+    nxs_per_frame_compression_ratio = 2.5
 
     # per-event
-    event_id_bits = 32
-    event_time_offset_bits = 32
-    per_event_compression_ratio = 1.3
+    nxs_event_id_bits = 32
+    nxs_event_time_offset_bits = 32
+    nxs_per_event_compression_ratio = 1.3
 
     # legacy fields
-    event_frame_number_bits = 32
-    event_time_bins = 32
+    #event_frame_number_bits = 32
+    #event_time_bins = 32
     return (
-        ev44_header_bits,
-        ev44_per_event_bits,
-        event_id_bits,
-        event_index_bits,
-        event_time_offset_bits,
-        event_time_zero_bits,
-        per_event_compression_ratio,
-        per_frame_compression_ratio,
+        ev44_message_id_bits,
+        ev44_pixel_id_bits,
+        ev44_ref_time_bits,
+        ev44_ref_time_index_bits,
+        ev44_source_name_bits,
+        ev44_tof_bits,
+        nxs_event_id_bits,
+        nxs_event_index_bits,
+        nxs_event_time_offset_bits,
+        nxs_event_time_zero_bits,
+        nxs_per_event_compression_ratio,
+        nxs_per_frame_compression_ratio,
     )
 
 
 @app.cell
-def _(ev44_header_bits, ev44_per_event_bits, mo, run_summary):
+def _(
+    ev44_message_id_bits,
+    ev44_pixel_id_bits,
+    ev44_ref_time_bits,
+    ev44_ref_time_index_bits,
+    ev44_source_name_bits,
+    ev44_tof_bits,
+    mo,
+    run_summary,
+):
     _df = mo.sql(
         f"""
+        -- We assume 1 ev44 message holds 1 frame
         CREATE OR REPLACE MACRO to_mbits_sec (framerate_hz, mevts_per_frame) AS framerate_hz * (
-            ({ev44_header_bits} + 1e6 * mevts_per_frame * {ev44_per_event_bits}) / 1e6
+            (({ev44_source_name_bits + ev44_message_id_bits + ev44_ref_time_bits + ev44_ref_time_index_bits}) + 1e6 * mevts_per_frame * ({ev44_pixel_id_bits + ev44_tof_bits})) / 1e6
         );
 
         CREATE OR REPLACE TABLE data_rates AS (
@@ -171,24 +186,70 @@ def _(ev44_header_bits, ev44_per_event_bits, mo, run_summary):
 @app.cell
 def _(
     data_rates,
-    event_id_bits,
-    event_index_bits,
-    event_time_offset_bits,
-    event_time_zero_bits,
     mo,
-    per_event_compression_ratio,
-    per_frame_compression_ratio,
+    nxs_event_id_bits,
+    nxs_event_index_bits,
+    nxs_event_time_offset_bits,
+    nxs_event_time_zero_bits,
+    nxs_per_event_compression_ratio,
+    nxs_per_frame_compression_ratio,
 ):
     _df = mo.sql(
         f"""
         CREATE OR REPLACE MACRO nexus_mbytes_hr (framerate_hz, mevts_per_frame) AS (
             (
                 3600 * framerate_hz * (
-                    ({event_index_bits} + {event_time_zero_bits}) / {per_frame_compression_ratio} + 1e6 * mevts_per_frame * ({event_id_bits} + {event_time_offset_bits}) / {per_event_compression_ratio}
+                    ({nxs_event_index_bits} + {nxs_event_time_zero_bits}) / {nxs_per_frame_compression_ratio} + 1e6 * mevts_per_frame * ({nxs_event_id_bits} + {nxs_event_time_offset_bits}) / {nxs_per_event_compression_ratio}
                 )
             ) / 8 / 1024 ** 2
         );
 
+        CREATE OR REPLACE TABLE data_rates_stats AS (
+            SELECT
+                beamline,
+                round(detector_mbits_sec, 4) as max_det_mbits_sec,
+                round(monitor_mbits_sec, 4) as max_mon_mbits_sec,
+                round(
+                    NEXUS_MBYTES_HR (framerate_hz, detector_mevents_per_frame) / 1024,
+                    4
+                )  as nxs_detector_gbytes_hr,
+                round(
+                    NEXUS_MBYTES_HR (framerate_hz, monitor_mevents_per_frame) / 1024,
+                    4
+                ) as nxs_monitor_gbytes_hr
+                -- run_number,
+                -- cycle_name,
+                -- framerate_hz
+            FROM
+                (
+                    SELECT
+                        *,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY
+                                beamline
+                            ORDER BY
+                                detector_mbits_sec DESC
+                        ) AS _rn
+                    FROM
+                        data_rates d
+                )
+            WHERE
+                _rn = 1
+        );
+        """
+    )
+    return
+
+
+@app.cell
+def _(data_rates_stats, mo):
+    _df = mo.sql(
+        f"""
+        -- CURRENT SUITE
+        select * from data_rates_stats;
+        """
+    )
+    return
         SELECT
             beamline,
             round(detector_mbits_sec, 4) as max_det_mbits_sec,
