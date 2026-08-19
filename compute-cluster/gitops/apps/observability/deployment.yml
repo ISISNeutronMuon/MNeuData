@@ -15,8 +15,8 @@ spec:
     targetRevision: 3.7.5
     helm:
       valueFiles:
-      - $values/gitops/apps/observability/values.yml
-  - repoURL: https://github.com/ISISNeutronMuon/MNeuData.git
+      - $values/compute-cluster/gitops/apps/observability/values.yml
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
     targetRevision: compute_cluster
     ref: values
   destination:
