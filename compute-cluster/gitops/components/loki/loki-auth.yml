@@ -9,7 +9,7 @@ spec:
   vaultAuthRef: static-auth
 
   mount: isis-compute-cluster
-  path: loki/auth
+  path: loki-auth
   destination:
     name: loki-auth
     overwrite: true
