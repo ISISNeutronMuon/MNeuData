@@ -1,0 +1,31 @@
+#replicas: 3
+#plugins:
+#  - yesoreyeram-infinity-datasource
+#grafana.ini:
+#  smtp:
+#    enabled: true
+#    host: ob-mgw.stfc.ac.uk:26
+#    skip_verify: true
+#    from_name: ISIS Compute Observability
+#    from_address: alerts@grafana.compute.isis.cclrc.ac.uk
+#  server:
+#    root_url: https://grafana.compute.isis.cclrc.ac.uk/
+#  database:
+#    type: postgres
+#    wal: true
+#serviceMonitor:
+#  enabled: false # Temporarily disabled until Alloy is deployed correctly.
+#sidecar:
+#  alerts:
+#    enabled: true
+#  dashboards:
+#    enabled: true
+#  datasources:
+#    enabled: true
+#  notifiers:
+#    enabled: true
+#admin:
+#  existingSecret: grafana-creds
+#  userKey: username
+#  passwordKey: password
+#envFromSecret: grafana-creds
