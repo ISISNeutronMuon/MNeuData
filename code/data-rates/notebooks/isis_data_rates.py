@@ -250,36 +250,20 @@ def _(data_rates_stats, mo):
         """
     )
     return
+
+
+@app.cell
+def _(data_rates_stats, endeavour, mo):
+    _df = mo.sql(
+        f"""
+        -- ENDEAVOUR
         SELECT
-            beamline,
-            round(detector_mbits_sec, 4) as max_det_mbits_sec,
-            round(monitor_mbits_sec, 4) as max_mon_mbits_sec,
-            round(
-                NEXUS_MBYTES_HR (framerate_hz, detector_mevents_per_frame) / 1024,
-                4
-            )  as nxs_detector_gbytes_hr,
-            round(
-                NEXUS_MBYTES_HR (framerate_hz, monitor_mevents_per_frame) / 1024,
-                4
-            ) as nxs_monitor_gbytes_hr,
-            run_number,
-            cycle_name,
-            framerate_hz
+            e.beamline,
+            round(d.max_det_mbits_sec * e.detector_rate_sf, 4) AS max_det_mbits_sec,
+            round(d.max_mon_mbits_sec * e.monitor_rate_sf, 4) AS max_mon_mbits_sec
         FROM
-            (
-                SELECT
-                    *,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY
-                            beamline
-                        ORDER BY
-                            detector_mbits_sec DESC
-                    ) AS _rn
-                FROM
-                    data_rates d
-            )
-        WHERE
-            _rn = 1;
+            data_rates_stats d
+        JOIN endeavour e ON d.beamline = e.sf_base;
         """
     )
     return
