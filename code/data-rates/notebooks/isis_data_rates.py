@@ -6,7 +6,6 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
-    import altair as alt
     import os
     from pathlib import Path
     import dotenv
@@ -47,30 +46,42 @@ def _(RUN_SUMMARY_DIR, mo):
         -- than recorded in the files.
         CREATE OR REPLACE TABLE run_summary AS (
             SELECT
-                beamline,
-                run_number,
-                "cycle",
-            	title,
-                event_mode,
-                frame_sync,
-                raw_frames,
-                good_frames,
-                duration,
-                total_mevents as journal_total_mevents,
-                total_detector_mevents,
-                total_monitor_mevents,
-                round(raw_frames/duration, 1) as framerate_hz
+                j.beamline,
+                j."cycle" AS cycle_name,
+                j.run_number,
+                j.event_mode,
+                j.frame_sync,
+                j.raw_frames,
+                j.good_frames,
+                j.duration,
+                j.total_mevents as journal_total_mevents,
+                j.number_spectra,
+                j.number_time_channels,
+                n.total_detector_mcounts AS nxs_detector_mcounts,
+                n.total_monitor_mcounts AS nxs_monitor_mcounts,
+                round(j.raw_frames/j.duration, 1) as framerate_hz
             FROM
-                read_parquet('{RUN_SUMMARY_DIR}/*.parquet')
+                read_parquet('{RUN_SUMMARY_DIR}/*_journal.parquet') j
+            JOIN (SELECT * FROM read_parquet('{RUN_SUMMARY_DIR}/*_nexus.parquet')) n ON
+                j.beamline = n.beamline AND j."cycle" = n."cycle" AND j.run_number = n.run_number
             WHERE
                 frame_sync NOT ILIKE '%internal%'
                 AND duration > 0.0
                 AND raw_frames > 1
                 AND good_frames > 1
                 AND journal_total_mevents > 0
-                AND journal_total_mevents >= (total_detector_mevents + total_monitor_mevents)
+                AND journal_total_mevents >= (nxs_detector_mcounts + nxs_monitor_mcounts)
         );
+        """
+    )
+    return
 
+
+@app.cell
+def _(mo):
+    _df = mo.sql(
+        f"""
+        -- debugging cell
         -- select * from run_summary where beamline = 'WISH' and event_mode > 0
         """
     )
@@ -98,28 +109,24 @@ def _():
     pixel_id_bits = 32
     ev44_per_event_bits = reference_time_index_bits + time_of_flight_bits + pixel_id_bits
 
-    print("---- Event streaming data sizes ----")
-    print(f"  ev44_header_bits = {ev44_header_bits} bit")
-    print(f"  ev44_per_event_bits = {ev44_per_event_bits} bit")
-    print("-----------------------------------")
-
     # ---------------------
     # NeXus information
     # ---------------------
+    # Compression numbers were produced by checking a few files and looking at `dataset.nbytes()/dataset.id.get_storage_size()`
+
     # per frame
     event_index_bits = 64
     event_time_zero_bits = 64
+    per_frame_compression_ratio = 2.5
 
     # per-event
     event_id_bits = 32
     event_time_offset_bits = 32
+    per_event_compression_ratio = 1.3
 
     # legacy fields
     event_frame_number_bits = 32
     event_time_bins = 32
-
-    # compression
-    compress_ratio = 1
     return (
         ev44_header_bits,
         ev44_per_event_bits,
@@ -127,6 +134,8 @@ def _():
         event_index_bits,
         event_time_offset_bits,
         event_time_zero_bits,
+        per_event_compression_ratio,
+        per_frame_compression_ratio,
     )
 
 
@@ -142,20 +151,18 @@ def _(ev44_header_bits, ev44_per_event_bits, mo, run_summary):
             SELECT
                 beamline,
                 run_number,
-            	"cycle",
+                cycle_name,
                 framerate_hz,
-        	    (total_detector_mevents / good_frames) AS detector_mevents_per_frame,
-        	    (total_monitor_mevents / good_frames) AS monitor_mevents_per_frame,
+                (nxs_detector_mcounts / good_frames) AS detector_mevents_per_frame,
+                (nxs_monitor_mcounts / good_frames) AS monitor_mevents_per_frame,
                 TO_MBITS_SEC (
                     framerate_hz,
                     detector_mevents_per_frame
                 ) AS detector_mbits_sec,
-                TO_MBITS_SEC (framerate_hz, total_monitor_mevents / good_frames) AS monitor_mbits_sec,
+                TO_MBITS_SEC (framerate_hz, monitor_mevents_per_frame) AS monitor_mbits_sec,
             FROM
                 run_summary
         );
-
-        -- select * from data_rates where beamline='WISH' and run_number = 48120;
         """
     )
     return
@@ -169,13 +176,15 @@ def _(
     event_time_offset_bits,
     event_time_zero_bits,
     mo,
+    per_event_compression_ratio,
+    per_frame_compression_ratio,
 ):
     _df = mo.sql(
         f"""
         CREATE OR REPLACE MACRO nexus_mbytes_hr (framerate_hz, mevts_per_frame) AS (
             (
                 3600 * framerate_hz * (
-                    ({event_index_bits} + {event_time_zero_bits}) + 1e6 * mevts_per_frame * ({event_id_bits} + {event_time_offset_bits})
+                    ({event_index_bits} + {event_time_zero_bits}) / {per_frame_compression_ratio} + 1e6 * mevts_per_frame * ({event_id_bits} + {event_time_offset_bits}) / {per_event_compression_ratio}
                 )
             ) / 8 / 1024 ** 2
         );
@@ -193,7 +202,7 @@ def _(
                 4
             ) as nxs_monitor_gbytes_hr,
             run_number,
-            "cycle",
+            cycle_name,
             framerate_hz
         FROM
             (
