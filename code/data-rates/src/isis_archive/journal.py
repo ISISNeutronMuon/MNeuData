@@ -121,7 +121,7 @@ def summarise_run(
         nexus_summary = summarise_nexus(nexus_file)
     except FileNotFoundError:
         nexus_summary = NexusIOError("NeXus file missing")
-    except (KeyError, RuntimeError) as exc:
+    except (KeyError, RuntimeError, ValueError) as exc:
         logger.exception(f"{nexus_file}")
         nexus_summary = NexusIOError(f"{nexus_file}: {exc}")
 

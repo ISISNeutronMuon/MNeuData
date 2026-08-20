@@ -2,9 +2,17 @@
 
 ## Common fields
 
-## Event mode
+## Histograms
+
+### `detector_1`
+
+_Note: Group may be empty if only monitor data hass been recorded._
+
+## Events
 
 ### `detector_1_events`
+
+_Note: Group may be empty if only monitor data hass been recorded._
 
 The following entries are the minimum required to reconstruct the event information:
 

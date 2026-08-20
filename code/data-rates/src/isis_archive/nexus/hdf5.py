@@ -75,7 +75,10 @@ def _read_total_counts(groups: list[h5py.Group], dataset_name: str) -> int:
     entry:
         A group that is the parent of entries of ``nx_class``.
     """
-    return int(sum([np.array(grp[dataset_name]).sum() for grp in groups]))
+    try:
+        return int(sum([np.array(grp[dataset_name]).sum() for grp in groups]))
+    except KeyError:
+        return 0
 
 
 def _count_blocks_with_name(parent: h5py.Group, group_name: str) -> int:
