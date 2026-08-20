@@ -30,6 +30,8 @@ loki:
       endpoint: s3.compute.isis.cclrc.ac.uk
       region: us-east-1
       s3ForcePathStyle: true #Required to make our S3 compatability work
+      http_config:
+        insecure_skip_verify: true # versitygw uses self-signed cert; not production ready
   ingester:
     chunk_encoding: snappy
   querier:
