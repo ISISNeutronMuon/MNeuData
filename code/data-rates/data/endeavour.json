@@ -1,0 +1,37 @@
+[
+  {
+    "beamline": "SANDALS-2",
+    "sf_base": "SANDALS",
+    "detector_rate_sf": 10,
+    "monitor_rate_sf": 2.5,
+    "replacement": true
+  },
+  {
+    "beamline": "WISH-II",
+    "sf_base": "WISH",
+    "detector_rate_sf": 4,
+    "monitor_rate_sf": 1,
+    "replacement": false
+  },
+  {
+    "beamline": "MUSHROOM",
+    "sf_base": "LET",
+    "detector_rate_sf": 50,
+    "monitor_rate_sf": 1,
+    "replacement": false
+  },
+  {
+    "beamline": "OSIRIS+",
+    "sf_base": "OSIRIS",
+    "detector_rate_sf": 50,
+    "monitor_rate_sf": 1,
+    "replacement": true
+  },
+  {
+    "beamline": "TOSCA+",
+    "sf_base": "LET",
+    "detector_rate_sf": 50,
+    "monitor_rate_sf": 1,
+    "replacement": true
+  }
+]

@@ -32,9 +32,6 @@ def _(REPO_DATA_DIR, mo):
             FROM
                 read_json('{REPO_DATA_DIR}/beamline.json')
         );
-        CREATE OR REPLACE TABLE endeavour AS (
-            SELECT * from READ_JSON('{REPO_DATA_DIR}/endeavour.json')
-        );
         """
     )
     return
@@ -65,8 +62,9 @@ def _(RUN_SUMMARY_DIR, mo):
                 round(j.raw_frames/j.duration, 1) as framerate_hz
             FROM
                 read_parquet('{RUN_SUMMARY_DIR}/*_journal.parquet') j
-            JOIN (SELECT * FROM read_parquet('{RUN_SUMMARY_DIR}/*_nexus.parquet')) n ON
-                j.beamline = n.beamline AND j."cycle" = n."cycle" AND j.run_number = n.run_number
+            JOIN
+                (SELECT * FROM read_parquet('{RUN_SUMMARY_DIR}/*_nexus.parquet')) n ON
+                    j.beamline = n.beamline AND j."cycle" = n."cycle" AND j.run_number = n.run_number
             WHERE
                 frame_sync NOT ILIKE '%internal%'
                 AND duration > 0.0
@@ -86,6 +84,39 @@ def _(mo):
         f"""
         -- debugging cell
         -- select * from run_summary where beamline = 'WISH' and event_mode > 0
+        """
+    )
+    return
+
+
+@app.cell
+def _(REPO_DATA_DIR, mo, run_summary):
+    _df = mo.sql(
+        f"""
+        CREATE OR REPLACE TABLE event_counts_per_run AS (
+            SELECT
+                beamline,
+                FALSE AS endeavour,
+                run_number,
+                framerate_hz,
+                (nxs_detector_mcounts / good_frames) AS detector_mevents_per_frame,
+                (nxs_monitor_mcounts / good_frames) AS monitor_mevents_per_frame
+            FROM
+                run_summary r
+
+            UNION
+
+            SELECT
+                e.beamline,
+                TRUE AS endeavour,
+                NULL as run_number,
+                r.framerate_hz,
+                (nxs_detector_mcounts / good_frames) * e.detector_rate_sf AS detector_mevents_per_frame,
+                (nxs_monitor_mcounts / good_frames) * e.monitor_rate_sf AS monitor_mevents_per_frame,
+            FROM
+                run_summary r
+            JOIN (SELECT * from READ_JSON('{REPO_DATA_DIR}/endeavour.json')) e ON r.beamline = e.sf_base
+        );
         """
     )
     return
@@ -152,40 +183,7 @@ def _(
     ev44_ref_time_index_bits,
     ev44_source_name_bits,
     ev44_tof_bits,
-    mo,
-    run_summary,
-):
-    _df = mo.sql(
-        f"""
-        -- We assume 1 ev44 message holds 1 frame
-        CREATE OR REPLACE MACRO to_mbits_sec (framerate_hz, mevts_per_frame) AS framerate_hz * (
-            (({ev44_source_name_bits + ev44_message_id_bits + ev44_ref_time_bits + ev44_ref_time_index_bits}) + 1e6 * mevts_per_frame * ({ev44_pixel_id_bits + ev44_tof_bits})) / 1e6
-        );
-
-        CREATE OR REPLACE TABLE data_rates AS (
-            SELECT
-                beamline,
-                run_number,
-                cycle_name,
-                framerate_hz,
-                (nxs_detector_mcounts / good_frames) AS detector_mevents_per_frame,
-                (nxs_monitor_mcounts / good_frames) AS monitor_mevents_per_frame,
-                TO_MBITS_SEC (
-                    framerate_hz,
-                    detector_mevents_per_frame
-                ) AS detector_mbits_sec,
-                TO_MBITS_SEC (framerate_hz, monitor_mevents_per_frame) AS monitor_mbits_sec,
-            FROM
-                run_summary
-        );
-        """
-    )
-    return
-
-
-@app.cell
-def _(
-    data_rates,
+    event_counts_per_run,
     mo,
     nxs_event_id_bits,
     nxs_event_index_bits,
@@ -196,6 +194,11 @@ def _(
 ):
     _df = mo.sql(
         f"""
+        -- We assume 1 ev44 message holds 1 frame
+        CREATE OR REPLACE MACRO to_mbits_sec (framerate_hz, mevts_per_frame) AS framerate_hz * (
+            (({ev44_source_name_bits + ev44_message_id_bits + ev44_ref_time_bits + ev44_ref_time_index_bits}) + 1e6 * mevts_per_frame * ({ev44_pixel_id_bits + ev44_tof_bits})) / 1e6
+        );
+
         CREATE OR REPLACE MACRO nexus_mbytes_hr (framerate_hz, mevts_per_frame) AS (
             (
                 3600 * framerate_hz * (
@@ -204,66 +207,57 @@ def _(
             ) / 8 / 1024 ** 2
         );
 
-        CREATE OR REPLACE TABLE data_rates_stats AS (
+        CREATE OR REPLACE TABLE data_rates_per_run AS (
             SELECT
                 beamline,
-                round(detector_mbits_sec, 4) as max_det_mbits_sec,
-                round(monitor_mbits_sec, 4) as max_mon_mbits_sec,
-                round(
-                    NEXUS_MBYTES_HR (framerate_hz, detector_mevents_per_frame) / 1024,
-                    4
-                )  as nxs_detector_gbytes_hr,
-                round(
-                    NEXUS_MBYTES_HR (framerate_hz, monitor_mevents_per_frame) / 1024,
-                    4
-                ) as nxs_monitor_gbytes_hr
-                -- run_number,
+                endeavour,
+                TO_MBITS_SEC (
+                    framerate_hz,
+                    detector_mevents_per_frame
+                ) AS detector_mbits_sec,
+                TO_MBITS_SEC (framerate_hz, monitor_mevents_per_frame) AS monitor_mbits_sec,
+                NEXUS_MBYTES_HR(framerate_hz, detector_mevents_per_frame) / 1024 AS nxs_detector_gbytes_hr,
+                NEXUS_MBYTES_HR(framerate_hz, monitor_mevents_per_frame) / 1024 AS nxs_monitor_gbytes_hr,
+                run_number,
                 -- cycle_name,
-                -- framerate_hz
+                -- framerate_hz,
             FROM
-                (
-                    SELECT
-                        *,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY
-                                beamline
-                            ORDER BY
-                                detector_mbits_sec DESC
-                        ) AS _rn
-                    FROM
-                        data_rates d
-                )
-            WHERE
-                _rn = 1
+                event_counts_per_run
         );
+
+        -- select * from data_rates_per_run where beamline = 'WISH';
         """
     )
     return
 
 
 @app.cell
-def _(data_rates_stats, mo):
+def _(beamline, data_rates_per_run, mo):
     _df = mo.sql(
         f"""
-        -- CURRENT SUITE
-        select * from data_rates_stats;
-        """
-    )
-    return
-
-
-@app.cell
-def _(data_rates_stats, endeavour, mo):
-    _df = mo.sql(
-        f"""
-        -- ENDEAVOUR
+        -- Max rates
+        WITH d_stats AS (
+          SELECT
+                beamline,
+                endeavour,
+                -- we care about the total rate coming over the network
+                ROUND(max(detector_mbits_sec + monitor_mbits_sec), 4) as max_mbits_sec,
+                ROUND(max(nxs_detector_gbytes_hr + nxs_monitor_gbytes_hr), 4) as max_nxs_gbytes_hr,
+            FROM
+                data_rates_per_run d
+            GROUP BY
+                beamline, endeavour
+        )
         SELECT
-            e.beamline,
-            round(d.max_det_mbits_sec * e.detector_rate_sf, 4) AS max_det_mbits_sec,
-            round(d.max_mon_mbits_sec * e.monitor_rate_sf, 4) AS max_mon_mbits_sec
+            ds.beamline,
+            max_mbits_sec,
+            max_nxs_gbytes_hr,
+            CONCAT('TS', b.target_station) as target_station,
+            ds.endeavour
         FROM
-            data_rates_stats d
-        JOIN endeavour e ON d.beamline = e.sf_base;
+            d_stats ds
+        JOIN beamline b ON ds.beamline = b.beamline
+        ORDER BY ds.beamline;
         """
     )
     return
