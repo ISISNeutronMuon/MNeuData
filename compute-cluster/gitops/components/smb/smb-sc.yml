@@ -3,7 +3,7 @@ kind: StorageClass
 metadata:
   name: smb
   annotations:
-    storageclass.kubernetes.io/is-default-class: true
+    storageclass.kubernetes.io/is-default-class: "true"
 provisioner: smb.csi.k8s.io
 parameters:
   source: \\ISIS.cclrc.ac.uk\Shares\MNeudataCC
