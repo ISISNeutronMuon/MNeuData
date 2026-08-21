@@ -6,7 +6,7 @@ metadata:
     storageclass.kubernetes.io/is-default-class: "true"
 provisioner: smb.csi.k8s.io
 parameters:
-  source: \\ISIS.cclrc.ac.uk\Shares\MNeudataCC
+  source: "//ISISFS-ExpData2.isis.cclrc.ac.uk/MNeudataCC$"
   # if csi.storage.k8s.io/provisioner-secret is provided, will create a sub directory
   # with PV name under source
   csi.storage.k8s.io/provisioner-secret-name: smb-creds
@@ -17,7 +17,7 @@ reclaimPolicy: Delete  # available values: Delete, Retain
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
 mountOptions:
-  - dir_mode=0777
-  - file_mode=0777
-  - uid=1001
-  - gid=1001
+  - dir_mode=0775
+  - file_mode=0774
+  - gid=1000
+  - iocharset=utf8
