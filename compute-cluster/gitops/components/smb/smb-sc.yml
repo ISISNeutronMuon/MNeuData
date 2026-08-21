@@ -2,6 +2,8 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: smb
+  annotations:
+    storageclass.kubernetes.io/is-default-class: true
 provisioner: smb.csi.k8s.io
 parameters:
   source: \\ISIS.cclrc.ac.uk\Shares\MNeudataCC
