@@ -112,7 +112,7 @@ def _parse_instrument(
         cast(str, default_file_prefix),
         default_facility_padding,
     )
-    return name, Beamline(name, padding_rules)
+    return default_file_prefix, Beamline(default_file_prefix, padding_rules)
 
 
 def _build_file_naming_rules(
