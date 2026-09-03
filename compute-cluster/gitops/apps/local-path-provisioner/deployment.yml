@@ -11,7 +11,7 @@ spec:
   project: infra
   sources:
   - repoURL: https://github.com/rancher/local-path-provisioner.git
-    targetRevision: v0.0.38
+    targetRevision: v0.0.37
     path: deploy/chart/local-path-provisioner
     helm:
       valueFiles:
