@@ -10,11 +10,13 @@ storage:
     backend: s3
     s3:
       bucket: tempo-s3
-      endpoint: s3.echo.stfc.ac.uk
-      region: RegionOne
+      endpoint: s3.compute.isis.cclrc.ac.uk
+      region: us-east-1
       access_key: ${S3_ACCESS_KEY_ID}
       secret_key: ${S3_SECRET_ACCESS_KEY}
       insecure: false
+      forcepathstyle: true
+      tls_insecure_skip_verify: true
 metricsGenerator:
   enabled: true
   extraArgs:
@@ -34,13 +36,13 @@ metricsGenerator:
     registry:
       external_labels:
         source: tempo
-        cluster: infra-v1
+        cluster: mneudata-compute
     storage:
       remote_write:
-        - url: http://mimir-nginx.mimir.svc.cluster.local/api/v1/push
+        - url: http://mimir-gateway.mimir.svc.cluster.local/api/v1/push
           send_exemplars: true
           headers:
-            'X-Scope-OrgID': 'Observability'
+            'X-Scope-OrgID': 'mneudata-compute'
 gateway:
   enabled: true
 traces:
