@@ -5,6 +5,9 @@ global:
 
 ingester:
   replicas: 1
+  securityContext:
+    supplementalGroups:
+      - 1000
   resources:
     limits:
       memory: 12Gi
@@ -24,6 +27,9 @@ distributor:
       memory: 4Gi
 
 compactor:
+  securityContext:
+    supplementalGroups:
+      - 1000
   resources:
     limits:
       memory: 2.1Gi
@@ -35,6 +41,9 @@ compactor:
 
 store_gateway:
   replicas: 1
+  securityContext:
+    supplementalGroups:
+      - 1000
   resources:
     limits:
       memory: 2.1Gi
