@@ -1,0 +1,30 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: mneudata-basic-auth
+  namespace: mimir
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: mimir-mneudata
+  basicAuth:
+    users:
+      name: mimir-basic-auth
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: mimir-basic-auth
+  namespace: mimir
+spec:
+  type: kv-v2
+  refreshAfter: 30s
+  vaultAuthRef: static-auth
+
+  mount: isis-compute-cluster
+  path: mimir/user-basic-auth/mneudata
+  destination:
+    name: mimir-basic-auth
+    overwrite: true
+    create: true
