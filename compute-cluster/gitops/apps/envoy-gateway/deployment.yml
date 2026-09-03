@@ -10,9 +10,9 @@ metadata:
 spec:
   project: infra
   sources:
-  - repoURL: oci://docker.io/envoyproxy
+  - repoURL: oci://docker.io/envoyproxy/gateway-helm
     chart: gateway-helm
-    targetRevision: 1.9.1
+    targetRevision: v1.9.1
     helm:
       valueFiles:
       - $values/compute-cluster/gitops/apps/envoy-gateway/values.yml
