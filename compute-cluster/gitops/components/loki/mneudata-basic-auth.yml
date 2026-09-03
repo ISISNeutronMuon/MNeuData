@@ -1,0 +1,30 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: mneudata-basic-auth
+  namespace: loki
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: loki-mneudata
+  basicAuth:
+    users:
+      name: loki-basic-auth
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: loki-basic-auth
+  namespace: loki
+spec:
+  type: kv-v2
+  refreshAfter: 30s
+  vaultAuthRef: static-auth
+
+  mount: isis-compute-cluster
+  path: loki/user-basic-auth/mneudata
+  destination:
+    name: loki-basic-auth
+    overwrite: true
+    create: true
