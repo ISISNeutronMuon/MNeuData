@@ -1,0 +1,22 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: smb-postgres
+provisioner: smb.csi.k8s.io
+parameters:
+  source: "//ISISFS-ExpData2.isis.cclrc.ac.uk/MNeudataCC$"
+  # if csi.storage.k8s.io/provisioner-secret is provided, will create a sub directory
+  # with PV name under source
+  csi.storage.k8s.io/provisioner-secret-name: smb-creds
+  csi.storage.k8s.io/provisioner-secret-namespace: kube-system
+  csi.storage.k8s.io/node-stage-secret-name: smb-creds
+  csi.storage.k8s.io/node-stage-secret-namespace: kube-system
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+mountOptions:
+  - dir_mode=0700
+  - file_mode=0600
+  - uid=26
+  - gid=26
+  - iocharset=utf8
