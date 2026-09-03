@@ -1,0 +1,10 @@
+crds:
+  enabled: true
+
+config:
+  envoyGateway:
+    provider:
+      type: Kubernetes
+    logging:
+      level:
+        default: info

@@ -16,9 +16,7 @@ cgroup:
   hostRoot: "/sys/fs/cgroup"
 
 gatewayAPI:
-  enabled: true
-  enableAlpn: true
-  enableAppProtocol: true
+  enabled: false
 
 l2announcements:
   enabled: true

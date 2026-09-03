@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: envoy-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  sources:
+  - repoURL: oci://docker.io/envoyproxy
+    chart: gateway-helm
+    targetRevision: 1.9.1
+    helm:
+      valueFiles:
+      - $values/compute-cluster/gitops/apps/envoy-gateway/values.yml
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    ref: values
+  - repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    path: compute-cluster/gitops/components/envoy-gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: envoy-gateway-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true

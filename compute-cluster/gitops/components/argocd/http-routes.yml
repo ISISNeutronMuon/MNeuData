@@ -8,7 +8,7 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: gateway
-    namespace: kube-system
+    namespace: envoy-gateway-system
   hostnames:
   - argo.compute.isis.cclrc.ac.uk
   rules:

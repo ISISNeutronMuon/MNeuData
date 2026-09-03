@@ -8,7 +8,7 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: gateway
-    namespace: kube-system
+    namespace: envoy-gateway-system
   hostnames:
   - hubble.compute.isis.cclrc.ac.uk
   rules:
@@ -22,20 +22,3 @@ spec:
       name: hubble-ui
       port: 80
       weight: 1
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: http-to-https-redirect
-  namespace: default
-spec:
-  parentRefs:
-    - name: gateway
-      namespace: kube-system
-      sectionName: http
-  rules:
-    - filters:
-        - type: RequestRedirect
-          requestRedirect:
-            scheme: https
-            statusCode: 301

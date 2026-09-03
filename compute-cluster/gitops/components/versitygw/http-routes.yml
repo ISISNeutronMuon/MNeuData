@@ -8,7 +8,7 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: gateway
-    namespace: kube-system
+    namespace: envoy-gateway-system
   hostnames:
   - s3.compute.isis.cclrc.ac.uk
   rules:
@@ -55,7 +55,7 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: gateway
-    namespace: kube-system
+    namespace: envoy-gateway-system
   hostnames:
   - s3-admin.compute.isis.cclrc.ac.uk
   rules:
@@ -102,7 +102,7 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: gateway
-    namespace: kube-system
+    namespace: envoy-gateway-system
   hostnames:
   - versity.compute.isis.cclrc.ac.uk
   rules:

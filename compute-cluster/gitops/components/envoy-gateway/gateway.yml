@@ -2,12 +2,9 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: kube-system
+  namespace: envoy-gateway-system
 spec:
-  gatewayClassName: cilium
-  addresses:
-  - value: 130.246.55.235
-    type: IPAddress
+  gatewayClassName: envoy-gateway
   listeners:
   - name: http
     port: 80
@@ -18,12 +15,12 @@ spec:
   - name: https
     port: 443
     protocol: HTTPS
-    tls:
-      mode: Terminate
-      certificateRefs:
-      - group: ''
-        kind: Secret
-        name: compute-tls
     allowedRoutes:
       namespaces:
         from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: compute-tls

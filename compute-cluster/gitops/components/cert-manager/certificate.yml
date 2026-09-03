@@ -2,7 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: gateway-cert
-  namespace: kube-system
+  namespace: envoy-gateway-system
 spec:
   secretName: compute-tls
   issuerRef:
@@ -10,6 +10,12 @@ spec:
     kind: ClusterIssuer
   dnsNames:
   - compute.isis.cclrc.ac.uk
+  - argo.compute.isis.cclrc.ac.uk
+  - hubble.compute.isis.cclrc.ac.uk
   - s3.compute.isis.cclrc.ac.uk
   - s3-admin.compute.isis.cclrc.ac.uk
   - versity.compute.isis.cclrc.ac.uk
+  - loki.compute.isis.cclrc.ac.uk
+  - mimir.compute.isis.cclrc.ac.uk
+  - tempo.compute.isis.cclrc.ac.uk
+  - grafana.compute.isis.cclrc.ac.uk
