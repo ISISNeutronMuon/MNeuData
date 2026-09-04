@@ -9,31 +9,31 @@ data:
   datasources.yaml: |
     apiVersion: 1
     datasources:
-      - name: Mimir
+      - name: Mimir-Mneudata-compute
         type: prometheus
-        uid: mimir
+        uid: mimir-mneudata-compute
         access: proxy
         url: http://mimir-gateway.mimir.svc.cluster.local:80/prometheus
         jsonData:
           httpHeaderName1: "X-Scope-OrgID"
           timeInterval: 15s
           exemplarTraceIdDestinations:
-            - datasourceUid: tempo
+            - datasourceUid: tempo-mneudata-compute
               name: traceID
         secureJsonData:
           httpHeaderValue1: "mneudata-compute"
         isDefault: true
         editable: false
 
-      - name: Loki
+      - name: Loki-Mneudata-compute
         type: loki
-        uid: loki
+        uid: loki-mneudata-compute
         access: proxy
         url: http://loki-gateway.loki.svc.cluster.local:80
         jsonData:
           httpHeaderName1: "X-Scope-OrgID"
           derivedFields:
-            - datasourceUid: tempo
+            - datasourceUid: tempo-mneudata-compute
               matcherRegex: "traceID=(\\w+)"
               name: TraceID
               url: "$${__value.raw}"
@@ -42,15 +42,15 @@ data:
         isDefault: false
         editable: false
 
-      - name: Tempo
+      - name: Tempo-Mneudata-compute
         type: tempo
-        uid: tempo
+        uid: tempo-mneudata-compute
         access: proxy
         url: http://tempo-gateway.tempo.svc.cluster.local:80
         jsonData:
           httpHeaderName1: "X-Scope-OrgID"
           tracesToLogsV2:
-            datasourceUid: loki
+            datasourceUid: loki-mneudata-compute
             spanStartTimeShift: "-1h"
             spanEndTimeShift: "1h"
             filterByTraceID: false
@@ -58,7 +58,7 @@ data:
             customQuery: true
             query: '{$${__tags}} |= "$${__trace.id}"'
           serviceMap:
-            datasourceUid: mimir
+            datasourceUid: mimir-mneudata-compute
         secureJsonData:
           httpHeaderValue1: "mneudata-compute"
         isDefault: false
