@@ -167,6 +167,7 @@ minio:
 
 gateway:
   enabled: true
+  verboseLogging: false
 
 monitoring:
   serviceMonitor:

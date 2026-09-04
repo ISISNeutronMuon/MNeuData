@@ -45,6 +45,7 @@ metricsGenerator:
             'X-Scope-OrgID': 'mneudata-compute'
 gateway:
   enabled: true
+  verboseLogging: false
 traces:
   otlp:
     http:

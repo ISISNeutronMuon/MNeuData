@@ -67,6 +67,7 @@ kafka:
 
 gateway:
   enabled: true
+  verboseLogging: false
 
 metaMonitoring:
   serviceMonitor:

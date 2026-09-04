@@ -94,6 +94,19 @@ clusterMetrics:
   cadvisor:
     metricsTuning:
       includeNamespaces: *monitored_namespaces
+      useDefaultAllowList: true
+      excludeMetrics:
+        - "container_blkio_.*"
+        - "container_fs_io_.*"
+        - "container_fs_reads_merged_.*"
+        - "container_spec_.*"
+        - "container_network_.*_packets_dropped_total"
+  kubelet:
+    metricsTuning:
+      useDefaultAllowList: true
+      excludeMetrics:
+        - "kubelet_runtime_operations_duration_seconds_bucket"
+        - "kubelet_http_requests_duration_seconds_bucket"
   kube-state-metrics:
     namespaces: *monitored_namespaces
 
@@ -105,6 +118,10 @@ podLogsViaLoki:
   enabled: true
   collector: alloy-logs
   namespaces: *monitored_namespaces
+  extraLogProcessingStages: |
+    stage.drop {
+      expression = ".*\"GET (?:/ready|/healthz|/health|/livez) HTTP/.*\" (?:200|204) .*"
+    }
 
 profiling:
   enabled: false
@@ -124,6 +141,9 @@ telemetryServices:
     deploy: true
   node-exporter:
     deploy: true
+    extraArgs:
+      - "--collector.netdev.device-include=^(ens[0-9]+|eth[0-9]+)$"
+      - "--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
 
 collectors:
   alloy-metrics:
