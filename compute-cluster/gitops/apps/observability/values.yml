@@ -1,10 +1,10 @@
 cluster:
-  name: MNeudata-Compute
+  name: mneudata-compute
 
 destinations:
-  - name: metrics-service
+  metrics-service:
     type: prometheus
-    url: https://mimir.compute.isis.cclrc.ac.uk/mneudata/api/v1/push
+    url: https://mimir.compute.isis.cclrc.ac.uk/mneudata-compute/api/v1/push
     auth:
       type: basic
       usernameKey: username
@@ -13,10 +13,12 @@ destinations:
       create: false
       name: mimir-basic-auth
       namespace: monitoring-system
+    tls:
+      insecureSkipVerify: true
 
-  - name: logs-service
+  logs-service:
     type: loki
-    url: https://loki.compute.isis.cclrc.ac.uk/mneudata/loki/api/v1/push
+    url: https://loki.compute.isis.cclrc.ac.uk/mneudata-compute/loki/api/v1/push
     auth:
       type: basic
       usernameKey: username
@@ -25,11 +27,13 @@ destinations:
       create: false
       name: loki-basic-auth
       namespace: monitoring-system
+    tls:
+      insecureSkipVerify: true
 
-  - name: traces-service
+  traces-service:
     type: otlp
     protocol: http
-    url: https://tempo.compute.isis.cclrc.ac.uk/mneudata
+    url: https://tempo.compute.isis.cclrc.ac.uk/mneudata-compute
     auth:
       type: basic
       usernameKey: username
@@ -38,16 +42,23 @@ destinations:
       create: false
       name: tempo-basic-auth
       namespace: monitoring-system
-    metrics: {enabled: true}
-    logs: {enabled: true}
-    traces: {enabled: true}
+    metrics:
+      enabled: true
+    logs:
+      enabled: true
+    traces:
+      enabled: true
+    tls:
+      insecureSkipVerify: true
 
 annotationAutodiscovery:
   enabled: true
-  namespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+  collector: alloy-singleton
+  namespaces: &monitored_namespaces [argocd, cert-manager, default, envoy-gateway-system, grafana, local-path-storage, loki, mimir, monitoring-system, postgres-system, tempo, vault-secrets-operator-system, versitygw-system]
 
 applicationObservability:
   enabled: true
+  collector: alloy-receiver
   receivers:
     otlp:
       grpc:
@@ -59,86 +70,84 @@ applicationObservability:
   metrics:
     filters:
       metric:
-        - IsMatch(resource.attributes["k8s.namespace.name"], "^argocd|cert-manager|default|loki|mimir|monitoring-system|tempo|vault-secrets-operator-system|versitygw-system$")
-      logs:
-        - IsMatch(resource.attributes["k8s.namespace.name"], "^argocd|cert-manager|default|loki|mimir|monitoring-system|tempo|vault-secrets-operator-system|versitygw-system$")
-      traces:
-        - IsMatch(resource.attributes["k8s.namespace.name"], "^argocd|cert-manager|default|loki|mimir|monitoring-system|tempo|vault-secrets-operator-system|versitygw-system$")
+        - 'IsMatch(resource.attributes["k8s.namespace.name"], "^(argocd|cert-manager|default|envoy-gateway-system|grafana|local-path-storage|loki|mimir|monitoring-system|postgres-system|tempo|vault-secrets-operator-system|versitygw-system)$")'
+  logs:
+    filters:
+      log_record:
+        - 'IsMatch(resource.attributes["k8s.namespace.name"], "^(argocd|cert-manager|default|envoy-gateway-system|grafana|local-path-storage|loki|mimir|monitoring-system|postgres-system|tempo|vault-secrets-operator-system|versitygw-system)$")'
+  traces:
+    filters:
+      span:
+        - 'IsMatch(resource.attributes["k8s.namespace.name"], "^(argocd|cert-manager|default|envoy-gateway-system|grafana|local-path-storage|loki|mimir|monitoring-system|postgres-system|tempo|vault-secrets-operator-system|versitygw-system)$")'
 
 autoInstrumentation:
   enabled: false
 
 clusterEvents:
   enabled: true
-  namespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+  collector: alloy-singleton
+  namespaces: *monitored_namespaces
 
 clusterMetrics:
   enabled: true
+  collector: alloy-metrics
   cadvisor:
     metricsTuning:
-      includeNamespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+      includeNamespaces: *monitored_namespaces
   kube-state-metrics:
-    namespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+    namespaces: *monitored_namespaces
 
-podLogs:
+hostMetrics:
   enabled: true
-  namespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+  collector: alloy-metrics
+
+podLogsViaLoki:
+  enabled: true
+  collector: alloy-logs
+  namespaces: *monitored_namespaces
 
 profiling:
   enabled: false
 
 prometheusOperatorObjects:
   enabled: true
-  crds:
-    deploy: true
+  collector: alloy-metrics
   probes:
-    namespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+    namespaces: *monitored_namespaces
   podMonitors:
-    namespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+    namespaces: *monitored_namespaces
   serviceMonitors:
-    namespaces: [argocd, cert-manager, default, loki, mimir, monitoring-system, tempo, vault-secrets-operator-system, versitygw-system]
+    namespaces: *monitored_namespaces
 
-alloy-metrics:
-  enabled: true
-  # The following is an example of how you would scrape an external source and pass it on from here:
-#  extraConfig: |
-#    prometheus.scrape "redpanda_external" {
-#      targets = [
-#        { __address__ = "130.246.80.191:9644" },
-#        { __address__ = "130.246.81.188:9644" },
-#        { __address__ = "130.246.81.166:9644" },
-#      ]
-#      scrape_interval = "30s"
-#      scrape_timeout  = "10s"
-#      metrics_path    = "/public_metrics"
-#      forward_to = [prometheus.relabel.redpanda_external.receiver]
-#    }
-#    prometheus.relabel "redpanda_external" {
-#      forward_to = [prometheus.remote_write.metrics_service.receiver]
-#      rule {
-#        target_label = "cluster"
-#        replacement  = "redpanda-external"
-#      }
-#    }
+telemetryServices:
+  kube-state-metrics:
+    deploy: true
+  node-exporter:
+    deploy: true
 
-alloy-singleton:
-  enabled: true
-
-alloy-logs:
-  enabled: true
-
-alloy-receiver:
-  enabled: true
-  alloy:
-    extraPorts:
-      - name: otlp-grpc
-        port: 4317
-        targetPort: 4317
-        protocol: TCP
-      - name: otlp-http
-        port: 4318
-        targetPort: 4318
-        protocol: TCP
-
-alloy-profiles:
-  enabled: false
+collectors:
+  alloy-metrics:
+    presets:
+      - clustered
+      - statefulset
+  alloy-singleton:
+    presets:
+      - singleton
+  alloy-logs:
+    presets:
+      - daemonset
+      - filesystem-log-reader
+  alloy-receiver:
+    presets:
+      - deployment
+      - otel-receiver
+    alloy:
+      extraPorts:
+        - name: otlp-grpc
+          port: 4317
+          targetPort: 4317
+          protocol: TCP
+        - name: otlp-http
+          port: 4318
+          targetPort: 4318
+          protocol: TCP
