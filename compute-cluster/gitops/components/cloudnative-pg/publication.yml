@@ -6,6 +6,7 @@ metadata:
 spec:
   cluster:
     name: postgres-cluster
+  dbname: grafana
   name: all_tables
   target:
     allTables: true
