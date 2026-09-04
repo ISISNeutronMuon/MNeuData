@@ -1,31 +1,43 @@
-#replicas: 3
-#plugins:
-#  - yesoreyeram-infinity-datasource
-#grafana.ini:
-#  smtp:
-#    enabled: true
-#    host: ob-mgw.stfc.ac.uk:26
-#    skip_verify: true
-#    from_name: ISIS Compute Observability
-#    from_address: alerts@grafana.compute.isis.cclrc.ac.uk
-#  server:
-#    root_url: https://grafana.compute.isis.cclrc.ac.uk/
-#  database:
-#    type: postgres
-#    wal: true
-#serviceMonitor:
-#  enabled: false # Temporarily disabled until Alloy is deployed correctly.
-#sidecar:
-#  alerts:
-#    enabled: true
-#  dashboards:
-#    enabled: true
-#  datasources:
-#    enabled: true
-#  notifiers:
-#    enabled: true
-#admin:
-#  existingSecret: grafana-creds
-#  userKey: username
-#  passwordKey: password
-#envFromSecret: grafana-creds
+replicas: 3
+
+grafana.ini:
+  smtp:
+    enabled: true
+    host: ob-mgw.stfc.ac.uk:26
+    skip_verify: true
+    from_name: ISIS Compute Observability
+    from_address: alerts@grafana.compute.isis.cclrc.ac.uk
+  server:
+    root_url: https://grafana.compute.isis.cclrc.ac.uk/
+  database:
+    type: postgres
+    host: postgres-cluster-rw.postgres-system.svc.cluster.local:5432
+    name: grafana
+    user: grafana
+    password: "$__env{GF_DATABASE_PASSWORD}"
+    ssl_mode: disable
+    wal: true
+
+envValueFrom:
+  GF_DATABASE_PASSWORD:
+    secretKeyRef:
+      name: grafana-db-creds
+      key: password
+
+serviceMonitor:
+  enabled: true
+
+sidecar:
+  alerts:
+    enabled: true
+  dashboards:
+    enabled: true
+  datasources:
+    enabled: true
+  notifiers:
+    enabled: true
+
+admin:
+  existingSecret: grafana-creds
+  userKey: username
+  passwordKey: password

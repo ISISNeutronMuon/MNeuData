@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: grafana
+  labels:
+    grafana_datasource: "1"
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Mimir
+        type: prometheus
+        uid: mimir
+        access: proxy
+        url: http://mimir-gateway.mimir.svc.cluster.local:80/prometheus
+        jsonData:
+          httpHeaderName1: "X-Scope-OrgID"
+          timeInterval: 15s
+          exemplarTraceIdDestinations:
+            - datasourceUid: tempo
+              name: traceID
+        secureJsonData:
+          httpHeaderValue1: "mneudata-compute"
+        isDefault: true
+        editable: false
+
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki-gateway.loki.svc.cluster.local:80
+        jsonData:
+          httpHeaderName1: "X-Scope-OrgID"
+          derivedFields:
+            - datasourceUid: tempo
+              matcherRegex: "traceID=(\\w+)"
+              name: TraceID
+              url: "$${__value.raw}"
+        secureJsonData:
+          httpHeaderValue1: "mneudata-compute"
+        isDefault: false
+        editable: false
+
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        access: proxy
+        url: http://tempo-gateway.tempo.svc.cluster.local:80
+        jsonData:
+          httpHeaderName1: "X-Scope-OrgID"
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: "-1h"
+            spanEndTimeShift: "1h"
+            filterByTraceID: false
+            filterBySpanID: false
+            customQuery: true
+            query: '{$${__tags}} |= "$${__trace.id}"'
+          serviceMap:
+            datasourceUid: mimir
+        secureJsonData:
+          httpHeaderValue1: "mneudata-compute"
+        isDefault: false
+        editable: false
