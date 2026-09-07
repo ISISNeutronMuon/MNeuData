@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3-exporter
+  namespace: monitoring-system
+  labels:
+    app.kubernetes.io/name: s3-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: s3-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: s3-exporter
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: s3-exporter
+        image: ghcr.io/isisneutronmuon/s3-exporter@sha256:f76b04f0f1a5430a01bb16ca89c6039828a13196498a19fa65658dfc354297ad
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: versity-s3-root
+              key: S3_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: versity-s3-root
+              key: S3_SECRET_ACCESS_KEY
+        - name: S3_ENDPOINT
+          value: "http://versitygw.versitygw-system.svc.cluster.local:7070"
+        - name: S3_BUCKETS
+          value: "loki-s3,loki-ruler-s3,mimir-s3,mimir-ruler-s3,tempo-s3"
+        - name: SCRAPE_INTERVAL
+          value: "300"
+        - name: AWS_DEFAULT_REGION
+          value: "us-east-1"
+        - name: AWS_EC2_METADATA_DISABLED
+          value: "true"
+        - name: AWS_CONFIG_FILE
+          value: "/aws/config"
+        - name: HOME
+          value: "/tmp"
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+        ports:
+        - name: metrics
+          containerPort: 8000
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 15
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 15
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        volumeMounts:
+        - name: aws-config
+          mountPath: /aws
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: aws-config
+        configMap:
+          name: s3-exporter-aws-config
+      - name: tmp
+        emptyDir: {}
