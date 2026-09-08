@@ -39,7 +39,7 @@ spec:
             - ALL
         command: ["/bin/sh", "-c"]
         args:
-        - "pip install --no-cache-dir --target /tmp/pkg epicscorelibs && exec python -u -m epicscorelibs.ioc -d /config/records.db"
+        - "pip install --no-cache-dir --target /tmp/pkg epicscorelibs && exec python -u -c 'from epicscorelibs.ioc import start_ioc; import signal; start_ioc(database=\"/config/records.db\"); signal.pause()'"
         env:
         - name: HOME
           value: "/tmp"
