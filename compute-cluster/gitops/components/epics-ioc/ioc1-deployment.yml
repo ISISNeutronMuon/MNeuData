@@ -18,7 +18,7 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
-        kubernetes.io/hostname: talos-12a-xos
+        kubernetes.io/hostname: talos-12a-ewd
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -48,7 +48,7 @@ spec:
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: EPICS_CAS_INTF_ADDR_LIST
-          value: "130.246.55.57"
+          value: "130.246.55.51"
         - name: EPICS_CA_SERVER_PORT
           value: "5064"
         - name: EPICS_CA_REPEATER_PORT
