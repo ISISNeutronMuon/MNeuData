@@ -50,9 +50,9 @@ spec:
         - name: EPICS_CAS_INTF_ADDR_LIST
           value: "130.246.55.57"
         - name: EPICS_CA_SERVER_PORT
-          value: "5066"
+          value: "5064"
         - name: EPICS_CA_REPEATER_PORT
-          value: "5067"
+          value: "5065"
         volumeMounts:
         - name: records
           mountPath: /config
