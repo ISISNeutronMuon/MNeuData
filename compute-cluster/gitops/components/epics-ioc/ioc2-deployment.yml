@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: epics-ioc-1
+  name: epics-ioc-2
   namespace: epics-test
   labels:
-    app.kubernetes.io/name: epics-ioc-1
+    app.kubernetes.io/name: epics-ioc-2
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: epics-ioc-1
+      app.kubernetes.io/name: epics-ioc-2
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: epics-ioc-1
+        app.kubernetes.io/name: epics-ioc-2
     spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -50,9 +50,9 @@ spec:
         - name: EPICS_CAS_INTF_ADDR_LIST
           value: "130.246.55.57"
         - name: EPICS_CA_SERVER_PORT
-          value: "5064"
+          value: "5066"
         - name: EPICS_CA_REPEATER_PORT
-          value: "5065"
+          value: "5067"
         volumeMounts:
         - name: records
           mountPath: /config
@@ -69,6 +69,6 @@ spec:
       volumes:
       - name: records
         configMap:
-          name: ioc1-records
+          name: ioc2-records
       - name: tmp
         emptyDir: {}

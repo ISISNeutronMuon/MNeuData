@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ioc2-records
+  namespace: epics-test
+  labels:
+    app.kubernetes.io/name: epics-ioc-2
+data:
+  records.db: |
+    record(ao, "TE:MNEUDATA:BAZ") {}
+    record(ao, "TE:MNEUDATA:QUX") {}
