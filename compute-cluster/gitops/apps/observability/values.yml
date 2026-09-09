@@ -54,7 +54,7 @@ destinations:
 annotationAutodiscovery:
   enabled: true
   collector: alloy-singleton
-  namespaces: &monitored_namespaces [argocd, cert-manager, default, envoy-gateway-system, grafana, local-path-storage, loki, mimir, monitoring-system, postgres-system, tempo, vault-secrets-operator-system, versitygw-system]
+  namespaces: &monitored_namespaces [argocd, cert-manager, default, envoy-gateway-system, grafana, local-path-storage, loki, mimir, monitoring-system, postgres-system, tempo, vault-secrets-operator-system, versitygw-system, epics-test]
 
 applicationObservability:
   enabled: true
