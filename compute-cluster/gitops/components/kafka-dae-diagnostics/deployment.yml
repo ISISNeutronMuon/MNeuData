@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-dae-diagnostics
+  namespace: epics-test
+  labels:
+    app.kubernetes.io/name: kafka-dae-diagnostics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka-dae-diagnostics
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka-dae-diagnostics
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/hostname: talos-12a-xos
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: diagnostics
+        image: ghcr.io/isiscomputinggroup/kafka_dae_diagnostics@sha256:00a605ed78ae7aa1c196a7a1a9ed5ed4f861c9325d05805bd14d2f6fd68c5546
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        args:
+        - "--config"
+        - "/config/config.toml"
+        - "--log-level"
+        - "INFO"
+        env:
+        - name: EPICS_PVAS_INTF_ADDR_LIST
+          value: "130.246.55.57"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: HOME
+          value: "/tmp"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: config
+        configMap:
+          name: kafka-dae-diagnostics-config
+      - name: tmp
+        emptyDir: {}

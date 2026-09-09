@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-dae-diagnostics-config
+  namespace: epics-test
+  labels:
+    app.kubernetes.io/name: kafka-dae-diagnostics
+data:
+  config.toml: |
+    pv_prefix = "TE:TESTMACHINE:KDAEDIAG:"
+    callback_frequency_ms = 250
+    runinfo_topic = "TESTMACHINE_runInfo"
+    events_topic = "TESTMACHINE_events"
+    vetoconfig_topic = "TESTMACHINE_vetoConfig"
+
+    [kafka_runinfo_consumer]
+    "bootstrap.servers" = "livedata.isis.cclrc.ac.uk:31092"
+    "group.id" = "kdaediag-runinfo-testmachine"
+
+    [kafka_events_consumer]
+    "bootstrap.servers" = "livedata.isis.cclrc.ac.uk:31092"
+    "group.id" = "kdaediag-events-testmachine"
+
+    [kafka_vetoconfig_consumer]
+    "bootstrap.servers" = "livedata.isis.cclrc.ac.uk:31092"
+    "group.id" = "kdaediag-veto-testmachine"
