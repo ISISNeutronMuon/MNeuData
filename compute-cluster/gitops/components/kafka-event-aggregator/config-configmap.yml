@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-event-aggregator-config
+  namespace: epics-test
+  labels:
+    app.kubernetes.io/name: kafka-event-aggregator
+data:
+  config.toml: |
+    input_topic = "TESTMACHINE_rawEvents"
+    output_topic = "TESTMACHINE_events"
+    metrics_bind_addr = "0.0.0.0:8484"
+
+    [kafka_producer]
+    "bootstrap.servers" = "livedata.isis.cclrc.ac.uk:31092"
+    "enable.idempotence" = "true"
+
+    [kafka_consumer]
+    "bootstrap.servers" = "livedata.isis.cclrc.ac.uk:31092"
+    "group.id" = "kafka-event-aggregator-TESTMACHINE"

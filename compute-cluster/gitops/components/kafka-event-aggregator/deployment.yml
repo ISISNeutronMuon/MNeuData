@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-event-aggregator
+  namespace: epics-test
+  labels:
+    app.kubernetes.io/name: kafka-event-aggregator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka-event-aggregator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka-event-aggregator
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: aggregator
+        image: ghcr.io/isiscomputinggroup/kafka_event_aggregator@sha256:d6a89148745c79c35f0af9733b937ba5093391e9d8e6f6a1d53c2125825cc6b2
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        args:
+        - "--config"
+        - "/config/config.toml"
+        - "-v"
+        ports:
+        - name: metrics
+          containerPort: 8484
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: config
+        configMap:
+          name: kafka-event-aggregator-config
