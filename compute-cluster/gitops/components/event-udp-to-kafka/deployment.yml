@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-udp-to-kafka
+  namespace: epics-test
+  labels:
+    app.kubernetes.io/name: event-udp-to-kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: event-udp-to-kafka
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: event-udp-to-kafka
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/hostname: talos-12a-xos
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: udp2kafka
+        image: ghcr.io/isiscomputinggroup/event_udp_to_kafka@sha256:57771a10fc84ed72d82acf5fc5825871ac033c9dabd58d64d694984d663c8aca
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        args:
+        - "--config"
+        - "/config/config.toml"
+        ports:
+        - name: udp-input
+          containerPort: 12345
+          protocol: UDP
+        - name: metrics
+          containerPort: 8485
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: config
+        configMap:
+          name: event-udp-to-kafka-config

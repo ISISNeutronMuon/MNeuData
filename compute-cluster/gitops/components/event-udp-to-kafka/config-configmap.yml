@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: event-udp-to-kafka-config
+  namespace: epics-test
+  labels:
+    app.kubernetes.io/name: event-udp-to-kafka
+data:
+  config.toml: |
+    udp_bind_addr = "0.0.0.0:12345"
+    dest_kafka_topic = "TESTMACHINE_rawEvents"
+    wiring_csv_path = "/wiring.csv"
+    metrics_bind_addr = "0.0.0.0:8485"
+
+    [kafka_producer]
+    "bootstrap.servers" = "livedata.isis.cclrc.ac.uk:31092"

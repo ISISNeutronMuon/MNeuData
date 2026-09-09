@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: event-udp-to-kafka
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infra
+  source:
+    repoURL: git@github.com:ISISNeutronMuon/MNeuData.git
+    targetRevision: compute_cluster
+    path: compute-cluster/gitops/components/event-udp-to-kafka
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: epics-test
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
