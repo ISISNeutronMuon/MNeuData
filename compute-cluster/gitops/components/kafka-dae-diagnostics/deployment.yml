@@ -41,8 +41,10 @@ spec:
         - "--config"
         - "/config/config.toml"
         - "--log-level"
-        - "INFO"
+        - "DEBUG"
         env:
+        - name: PVXS_LOG
+          value: "*=ERR"
         - name: EPICS_PVAS_INTF_ADDR_LIST
           value: "130.246.55.57"
         - name: PYTHONUNBUFFERED
