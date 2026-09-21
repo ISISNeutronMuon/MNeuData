@@ -1,29 +1,41 @@
-<!-- Implementation notes:
-- ADRs are the canonical, version-controlled record of every significant architecture decision for the compute-cluster; they live in-repo under docs/ADRs/ alongside the talos/ and gitops/ implementations they describe.
-- Files follow Michael Nygard's template (Title, Date, Status, Context, Decision, Consequences) and the joshrotenberg/adrs tool convention for creation/numbering.
-- Sequentially numbered with a zero-padded 4-digit prefix (0001..0010) so ordering and cross-referencing are stable; filenames are human-readable (e.g. '0005 Software infrastructure.md').
-- Status field (currently 'Pending' across the set) tracks lifecycle (Pending -> Accepted -> Superseded/Deprecated) rather than deleting superseded decisions.
-- Kept in Git and changed via the same human-in-the-loop review flow as the rest of the repo (agents draft, humans review/commit/push) so decision history is auditable.
-- ADRs 0003-0010 carry a non-rendering HTML comment block of implementation notes (like this one) that ties each decision back to concrete talos/gitops config.
-- Rationale: lightweight, low-friction, greppable documentation that stays next to the code so context for 'why' is not lost as the cluster evolves.
--->
+---
+status: "proposed"
+date: "2026-08-06"
+decision-makers: "Samuel Jones, Simon Hodder, Martyn Gigg, Daniel Nixon"
+consulted: "Martyn Gigg"
+informed: "Samuel Jones, Simon Hodder, Martyn Gigg, Daniel Nixon"
+---
+
 # 1. Record architecture decisions
 
-Date: 2026-08-06
-## Status
+## Context and Problem Statement
 
-First Draft
+We need to record the significant architectural decisions made on this project,
+in-repo and version-controlled. Which format should these records take?
 
-## Context
+## Considered Options
 
-We need to record the architectural decisions made on this project.
+* MADR (Markdown Architectural Decision Records)
+* Michael Nygard's ADR template
 
-## Decision
+## Decision Outcome
 
-We will use Architecture Decision Records, as [described by Michael Nygard](http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions).
+Chosen option: "MADR", because it keeps the lightweight, greppable, in-repo
+qualities we want while adding more structure (drivers, options, pros/cons) than
+Nygard's template. The project originally used Nygard and has since migrated the
+existing records to MADR. Records use the
+[MADR](https://adr.github.io/adr-templates/) full template (`docs/ADRs/template.md`),
+are managed with [adrs](https://github.com/joshrotenberg/adrs), and are numbered
+with a zero-padded 4-digit prefix.
 
-[adrs](https://github.com/joshrotenberg/adrs) will be used to manage ADRs.
+### Consequences
 
-## Consequences
+* Good, because decisions and their rationale stay next to the code, searchable
+  and version-controlled.
+* Bad, because the richer template is more effort, and the existing Nygard
+  records had to be migrated.
 
-See Michael Nygard’s article, linked above.
+### Confirmation
+
+New records are created from `docs/ADRs/template.md` and reviewed in the normal
+Git review flow before being committed.
