@@ -1,6 +1,6 @@
 ---
 status: "proposed"
-date: "2026-08-06"
+date: "2026-0-16"
 decision-makers: "Samuel Jones, Simon Hodder, Martyn Gigg, Daniel Nixon"
 consulted: "Martyn Gigg"
 informed: "Samuel Jones, Simon Hodder, Martyn Gigg, Daniel Nixon"
