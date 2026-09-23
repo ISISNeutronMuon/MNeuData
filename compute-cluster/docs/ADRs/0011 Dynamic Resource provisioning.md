@@ -1,22 +1,29 @@
-<!--
-1. Namespaced role based access control for each instrument's IBEX deployment
--->
+---
+status: "proposed"
+date: "2026-09-11"
+decision-makers: "Samuel Jones"
+consulted: ""
+informed: ""
+---
 
 # 11. Dynamic resource provisioning
 
-Date: 2026-09-11
-## Status
+## Context and Problem Statement
 
-Pending
+Access to the cluster for deploying IOCs and other workloads is limited. How should tenants (e.g. per-instrument IBEX deployments) be granted scoped, self-service provisioning — for example via namespaced role-based access control — without opening up the whole cluster?
 
-## Context
-
-Limited access to the cluster for deploying IOCs and other workloads.
-
-## Decision
+## Considered Options
 
 TBD
 
-## Consequences
+## Decision Outcome
+
+TBD
+
+### Consequences
+
+TBD
+
+### Confirmation
 
 TBD
