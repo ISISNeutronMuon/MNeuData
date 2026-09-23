@@ -1,41 +1,41 @@
-<!-- Implementation notes:
-- Proxmox VE 9.x on bare-metal Dell PowerEdge is the virtualisation layer hosting all Talos Kubernetes node VMs; it is driven declaratively by the bpg/proxmox Terraform provider (v0.111.0) in talos/terraform/ against the API endpoint https://130.246.53.66:8006 as root@pam (insecure=true for the internal self-signed cert).
-- Per-host VM storage is a mirrored (RAID1) ZFS pool built by proxmox_node_disk_zfs over two physical NVMe drives (/dev/nvme0n1 + /dev/nvme1n1), exposed as datastore 'nvme-storage-<host>' with add_storage and cleanup enabled; VM root disk, EFI disk, and cloud-init all live there.
-- VMs (modules/talos_node) use machine type pc-q35-10.1 pinned deliberately (newer types trigger a VirtIO regression that breaks inter-node networking), BIOS=ovmf (UEFI), CPU type=host (passthrough), virtio-scsi controller (scsi0, raw, ssd=on, discard=on), and an EFI disk.
-- QEMU guest agent is enabled (with fstrim) for clean IP reporting and graceful lifecycle; boot order is scsi0 then ide3 CD-ROM so the node boots from disk after Talos install.
-- The Talos image is a factory.talos.dev schematic ISO (v1.13.8, nocloud-amd64) baked with siderolabs/qemu-guest-agent, iscsi-tools, and util-linux-tools extensions; the ISO is uploaded once to each Proxmox host's 'local' datastore and the matching installer image is derived from the same URL for consistency.
-- Networking is software-defined via Proxmox bridge vmbr0 with static per-node MAC-to-IP bindings (130.246.52.0/22, gateway 130.246.52.254), giving stable node identity and predictable rebuilds.
-- Rationale: Proxmox gives cheap, reproducible, fully Terraform-managed VM lifecycle on existing ISIS Dell hardware, with ZFS mirroring for local resilience and pinned/immutable image inputs so the whole cluster can be torn down and re-created deterministically.
--->
+---
+status: "proposed"
+date: "2026-09-16"
+decision-makers: "Samuel Jones"
+consulted: "Simon Hodder, Martyn Gigg"
+informed: "Simon Hodder, Martyn Gigg"
+---
+
 # 3. Proxmox virtualisation layer
 
-Date: 2026-09-10
-## Status
+## Context and Problem Statement
 
-First Draft
+The hardware backbone (ADR 0002) is a set of bare-metal servers that need to host the cluster's Kubernetes (Talos) nodes. Running Kubernetes directly on bare metal ties each node's lifecycle to a physical box, making provisioning, rebuilds, and recovery slow and manual. What should sit between the physical hardware and the Kubernetes nodes so that node lifecycle is reproducible, resilient, and driven from code?
 
-## Context
+## Decision Drivers
 
-The hardware backbone (ADR 0002) is a set of bare-metal servers that need to host the cluster's Kubernetes (Talos) nodes. Running Kubernetes directly on bare metal ties each node's lifecycle to a physical box, making provisioning, rebuilds, and recovery slow and manual.
+* Reproducible, automatable node lifecycle defined in code rather than configured by hand.
+* Deterministic re-creation of the cluster for testing and disaster recovery.
+* Pooling of local disks so storage is resilient beneath the nodes.
+* Immutable, version-pinned node images and machine configuration.
+* Runs on the existing servers and future hardware, allowing expansion.
+* No licensing cost, integrates with Terraform, and supports the immutable Talos Linux OS.
 
-We want a virtualisation layer that:
+## Considered Options
 
-- makes node lifecycle reproducible and automatable from code
-- lets the cluster be re-created deterministically for testing and disaster recovery
-- pools local disks and makes them resilient beneath the nodes
-- keeps node images and machine configuration immutable and version-pinned
+* Proxmox VE with each Talos node as a QEMU/KVM virtual machine
+* A commercially-licensed hypervisor (e.g. VMware)
+* Kubernetes directly on bare metal (no virtualisation layer)
 
-It must run on the existing servers and future hardware allowing expansion, carry no licensing cost, integrate with Terraform, and support the immutable Talos Linux OS.
+## Decision Outcome
 
-## Decision
+Chosen option: **"Proxmox VE with each Talos node as a QEMU/KVM virtual machine"**, because it gives cheap, reproducible, fully Terraform-managed VM lifecycle on the existing (and future) hardware with no licensing cost, while supporting immutable Talos and ZFS-mirrored local storage.
 
-We will use Proxmox as the virtualisation layer on the bare-metal servers, and run every Kubernetes (Talos) node as a QEMU/KVM virtual machine on top of it, being assigned most of the resources of each VM. Proxmox is installed manually per host (typically via iDRAC) and joined to the cluster; that is the only manual step.
+Proxmox is installed manually per host (typically via iDRAC) and joined to the cluster; that is the only manual step. From there everything is declarative:
 
-From there everything is declarative:
-
-- Hosts and VMs are provisioned with Terraform (the `bpg/proxmox` provider), so node creation, sizing, and teardown are driven entirely from code.
-- Each host's local NVMe disks form a mirrored (RAID1) ZFS pool backing the VM disks, for local redundancy and throughput.
-- VMs attach to a Proxmox software bridge with static MAC-to-IP bindings, reserved to match how ISIS DHCP allocates IPs, so node identity is stable across rebuilds.
+* Hosts and VMs are provisioned with Terraform (using the `bpg/proxmox` provider), so node creation, sizing, and teardown are driven entirely from code.
+* Each host's local NVMe disks form a mirrored (RAID1) ZFS pool backing the VM disks, for local redundancy and throughput.
+* VMs attach to a Proxmox software bridge with static MAC-to-IP bindings, reserved to match how ISIS DHCP allocates IPs, so node network identity is stable across rebuilds.
 
 We will not adopt a commercially-licensed hypervisor (e.g. VMware) or run Kubernetes directly on bare metal.
 
@@ -53,11 +53,35 @@ The result is a clear set of layers, with Proxmox sitting between the physical h
 └───────────────────────────────────────────────────────┘
 ```
 
-## Consequences
+### Consequences
 
-Kubernetes Nodes (not Hardware, or Proxmox VE nodes) become disposable: recovering from a failure or reconfiguring a node is a code change and re-apply rather than a hands-on-hardware operation, which lowers the cost of rebuilds and makes the cluster deterministically reproducible for testing and disaster recovery.
+* Good, because Kubernetes nodes become disposable: recovering from a failure or reconfiguring a node is a code change and re-apply rather than a hands-on-hardware operation, lowering the cost of rebuilds and making the cluster deterministically reproducible for testing and disaster recovery.
+* Good, because the cluster gains local resilience beneath Kubernetes (ZFS mirror) without depending solely on central storage, where needed.
+* Good, because node identity stays predictable across rebuilds, so higher layers (networking, ingress, GitOps) can assume stable addressing.
+* Bad, because Proxmox becomes another layer to patch, troubleshoot, and support, with some overhead over bare metal and a few load-bearing hypervisor settings to maintain.
 
-The cluster gains local resilience beneath Kubernetes without depending solely on central storage, and node identity stays predictable across rebuilds, so higher layers (networking, ingress, GitOps) can assume stable addressing.
+### Confirmation
 
-In exchange for these benefits, Proxmox becomes a dependency that we need to support: another layer to patch and troubleshoot, some overhead over bare metal, and a few load-bearing hypervisor settings to maintain.
+The VM fleet is defined declaratively in `talos/terraform/` (the `bpg/proxmox` provider); a `terraform plan` shows no drift when the cluster matches code, and the whole cluster can be torn down and re-created with `terraform destroy` and `terraform apply`. Running nodes are verifiable via the Proxmox API and `kubectl get nodes -o wide`.
 
+## Pros and Cons of the Options
+
+### Proxmox VE with each Talos node as a QEMU/KVM virtual machine (Chosen option)
+
+* Good, because it is free (no licensing cost) and runs on the existing hardware.
+* Good, because the `bpg/proxmox` Terraform provider makes the whole VM lifecycle declarative and reproducible.
+* Good, because ZFS mirroring gives local disk redundancy beneath the nodes.
+* Neutral, because one manual step remains (installing Proxmox per host via iDRAC).
+* Bad, because it adds a hypervisor layer to operate, patch, and troubleshoot, with some overhead over bare metal.
+
+### A commercially-licensed hypervisor (e.g. VMware)
+
+* Good, because it is a mature, widely-supported enterprise platform.
+* Bad, because it carries recurring licensing cost for no more capability that we need here.
+* Bad, because it is a heavier, more proprietary layer than Proxmox for the same outcome.
+
+### Kubernetes directly on bare metal (no virtualisation layer)
+
+* Good, because it removes the hypervisor layer and it's overhead entirely.
+* Bad, because it ties each node's lifecycle to a physical box, making provisioning, rebuilds, and recovery slow and manual.
+* Bad, because there is no built-in local-disk pooling/redundancy beneath the nodes and no cheap and easy way to deterministically re-create nodes from code, did investigate iDRAC Terraform provider, and it was not sufficiently capable.
