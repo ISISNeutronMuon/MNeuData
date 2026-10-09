@@ -6,6 +6,11 @@ gateway:
   backend:
     type: "posix"
     args: "/mnt/data"
+    sidecarDir: "/mnt/metadata"
+
+extraEnv:
+  - name: VGW_DISABLE_OTMP
+    value: "true"
 
 auth:
   existingSecret: "versity-s3-root"
