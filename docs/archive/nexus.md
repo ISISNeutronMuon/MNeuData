@@ -6,13 +6,32 @@
 
 ### `detector_1`
 
-_Note: Group may be empty if only monitor data hass been recorded._
+_Note: Group may be empty if only monitor data has been recorded._
+
+<!-- prettier-ignore-start -->
+| Field name          | Data type | Description                                                                                    |
+| ------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| counts              | int-32    | Counts as an array with shape (nperiods, nspectra, ntime_channels). |
+| period_index        | int-32    | The period numbers for each period collected. Length=nperiods. |
+| spectrum_index      | int-32    | The spectrum numbers for each detector/group of detectors contributing to the spectrum. Length=nspectra |
+| time_of_flight      | float-32  | The time-of-flight channel boundaries. Length=ntime_channels + 1. |
+<!-- prettier-ignore-end -->
+
+### `monitor_N`
+
+A separate group for each monitor. Each has the same files as `detector_1` except `counts` is renamed `data` and there is an additional field:
+
+<!-- prettier-ignore-start -->
+| Field name          | Data type | Description                                                                                    |
+| ------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| monitor_number      | int-32    | Incrementing number for each monitor group |
+<!-- prettier-ignore-end -->
 
 ## Events
 
 ### `detector_1_events`
 
-_Note: Group may be empty if only monitor data hass been recorded._
+_Note: Group may be empty if only monitor data has been recorded._
 
 The following entries are the minimum required to reconstruct the event information:
 

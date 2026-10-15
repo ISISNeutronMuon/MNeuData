@@ -29,7 +29,7 @@
   },
   {
     "beamline": "TOSCA+",
-    "sf_base": "LET",
+    "sf_base": "TOSCA",
     "detector_rate_sf": 50,
     "monitor_rate_sf": 1,
     "replacement": true

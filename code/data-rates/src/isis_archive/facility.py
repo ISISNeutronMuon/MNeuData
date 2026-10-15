@@ -112,7 +112,8 @@ def _parse_instrument(
         cast(str, default_file_prefix),
         default_facility_padding,
     )
-    return default_file_prefix, Beamline(default_file_prefix, padding_rules)
+    ndx_suffix = name.replace("-", "")
+    return ndx_suffix, Beamline(ndx_suffix, padding_rules)
 
 
 def _build_file_naming_rules(
