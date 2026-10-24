@@ -14,14 +14,36 @@ def _():
 
     dotenv.load_dotenv()
 
-    # Data
-    FRAME_DATA_EXCEL = Path() / "isis_frame_data.xlsx"
+    FILENAME_XLSX = Path() / "isis_data_rates.xlsx"
     REPO_DATA_DIR = Path() / "data"
     RUN_SUMMARY_DIR = Path(os.environ["RUN_SUMMARY_DIR"])
-
+    XLSX_TABLE_STYLE = "Table Style Medium 2"
 
     print(f"Loading run summaries from '{RUN_SUMMARY_DIR}'")
-    return REPO_DATA_DIR, RUN_SUMMARY_DIR, mo
+    return FILENAME_XLSX, REPO_DATA_DIR, RUN_SUMMARY_DIR, XLSX_TABLE_STYLE, mo
+
+
+@app.cell
+def _():
+    # Streaming
+    src_name_bytes, msg_id_bytes, ref_time_bytes, ref_time_index_bytes = 16, 8, 8, 8
+    stream_frame_bytes = src_name_bytes + msg_id_bytes + ref_time_bytes + ref_time_index_bytes
+
+    tof_bytes, pixel_id_bytes, diag_bytes = 4, 4, 12
+    stream_event_bytes = tof_bytes + pixel_id_bytes + diag_bytes
+
+    # NeXus
+    event_index_bytes, event_time_zero_bytes, frame_comp_ratio = 8, 8, 2.5
+    nexus_frame_bytes = (event_index_bytes + event_time_zero_bytes) / frame_comp_ratio
+
+    event_id_bytes, event_time_offset_bytes, event_comp_ratio = 4, 4, 1.3
+    nexus_event_bytes = (event_id_bytes + event_time_offset_bytes) / event_comp_ratio
+    return (
+        nexus_event_bytes,
+        nexus_frame_bytes,
+        stream_event_bytes,
+        stream_frame_bytes,
+    )
 
 
 @app.cell
@@ -81,8 +103,33 @@ def _(RUN_SUMMARY_DIR, mo):
                 AND good_frames > 1
                 AND framerate_hz < 55
                 AND journal_total_mevents > 0
-                AND journal_total_mevents >= (nxs_detector_mcounts + nxs_monitor_mcounts)
+                -- AND journal_total_mevents >= (nxs_detector_mcounts + nxs_monitor_mcounts)
         );
+        """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    _df = mo.sql(
+        f"""
+        -- debugging cell
+        -- SELECT
+        --   beamline,
+        --   journal_total_mevents,
+        --   nxs_detector_mcounts + nxs_monitor_mcounts
+        -- FROM
+        --   run_summary
+        -- WHERE beamline = 'LARMOR'
+
+        -- SELECT
+        --     beamline,
+        --     cycle_name,
+        --     (SUM(duration) / 3600 / 24) AS total_duration_days
+        -- FROM run_summary
+        -- GROUP BY beamline, cycle_name
+        -- ORDER BY beamline, cycle_name
         """
     )
     return
@@ -92,7 +139,6 @@ def _(RUN_SUMMARY_DIR, mo):
 def _(beamline, mo, run_summary):
     run_summaries_df = mo.sql(
         f"""
-        -- Max rates
         CREATE OR REPLACE TABLE run_stats AS (
           SELECT
                 rs.beamline,
@@ -114,48 +160,9 @@ def _(beamline, mo, run_summary):
         	ORDER BY rs.beamline
         );
         select * from run_stats;
-        -- SELECT
-        --     rs.beamline,
-        --     CONCAT('TS', b.target_station) as target_station,
-        --     p50_duration,
-        --     p99_duration,
-        --     p99_good_frames,
-        --     p99_framerate_hz,
-        --     p99_det_mevents_frame,
-        --     p99_mon_mevents_frame,
-        --     max_number_time_channels,
-        --     med_number_periods,
-        --     max_number_monitors
-        -- FROM
-        --     run_stats rs
-        -- JOIN beamline b ON rs.beamline = b.beamline
-        -- ORDER BY rs.beamline;
         """
     )
     return
-
-
-@app.cell
-def _():
-    # Streaming
-    src_name_bytes, msg_id_bytes, ref_time_bytes, ref_time_index_bytes = 16, 8, 8, 8
-    stream_frame_bytes = src_name_bytes + msg_id_bytes + ref_time_bytes + ref_time_index_bytes
-
-    tof_bytes, pixel_id_bytes, diag_bytes = 4, 4, 12
-    stream_event_bytes = tof_bytes + pixel_id_bytes + diag_bytes
-
-    # NeXus
-    event_index_bytes, event_time_zero_bytes, frame_comp_ratio = 8, 8, 2.5
-    nexus_frame_bytes = (event_index_bytes + event_time_zero_bytes) / frame_comp_ratio
-
-    event_id_bytes, event_time_offset_bytes, event_comp_ratio = 4, 4, 1.3
-    nexus_event_bytes = (event_id_bytes + event_time_offset_bytes) / event_comp_ratio
-    return (
-        nexus_event_bytes,
-        nexus_frame_bytes,
-        stream_event_bytes,
-        stream_frame_bytes,
-    )
 
 
 @app.cell
@@ -197,7 +204,7 @@ def _(
 def _(mo):
     _df = mo.sql(
         f"""
-        CREATE OR REPLACE TABLE endeavour_info AS (
+        CREATE OR REPLACE TABLE rollout_info AS (
             SELECT * FROM (
                 VALUES
                     ('HRPD-X',     'HRPD',    DOUBLE '5.25', DOUBLE '1', DATE '2027-11-01'),
@@ -205,21 +212,21 @@ def _(mo):
                     ('SANDALS-II', 'SANDALS', DOUBLE '10',   DOUBLE '2.5', DATE '2028-10-01'),
                     ('WISH-II',    'WISH',    DOUBLE '4',    DOUBLE '1', DATE '2030-10-01'),
                     ('MUSHROOM',   'LET',     DOUBLE '50',   DOUBLE '1', DATE '2030-10-01'),
-                    ('TOSCA+',     'TOSCA',   DOUBLE '50',   DOUBLE '1', DATE '2031-10-01'),
-                    ('OSIRIS+',    'OSIRIS',  DOUBLE '50',   DOUBLE '1', DATE '2031-10-01')
+                    ('TOSCA+',     'TOSCA',   DOUBLE '50',   DOUBLE '1', DATE '2031-10-01'),  -- WHERE DID I GET THIS FROM?
+                    ('OSIRIS+',    'OSIRIS',  DOUBLE '50',   DOUBLE '1', DATE '2031-10-01').  -- WHERE DID I GET THIS FROM?
             ) AS t (beamline, baseline, det_sf, mon_sf, date_online)
         );
-        select * from endeavour_info order by date_online asc;
+        select * from rollout_info order by date_online asc;
         """
     )
     return
 
 
 @app.cell
-def _(current_rates, endeavour_info, mo):
+def _(current_rates, mo, rollout_info):
     _df = mo.sql(
         f"""
-        CREATE OR REPLACE TABLE projections AS (
+        CREATE OR REPLACE TABLE rollout_rates AS (
             SELECT
               e.beamline,
               ROUND("Detector rate (Mbps)" * det_sf, 4) AS "Detector rate (Mbps)",
@@ -227,7 +234,7 @@ def _(current_rates, endeavour_info, mo):
               ROUND("NeXus det rate (GB/hr)" * det_sf, 4) AS "NeXus det rate (GB/hr)",
               ROUND("NeXus mon rate (GB/hr)" * mon_sf, 4) AS "NeXus mon rate (GB/hr)",
             e.date_online,
-            FROM endeavour_info e
+            FROM rollout_info e
             LEFT JOIN current_rates cr ON e.baseline = cr.beamline
             ORDER BY beamline
         );
@@ -236,8 +243,8 @@ def _(current_rates, endeavour_info, mo):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo, projections):
+@app.cell
+def _(mo, rollout_rates):
     _df = mo.sql(
         f"""
         SELECT
@@ -245,7 +252,7 @@ def _(mo, projections):
           beamline,
           ROUND("Detector rate (Mbps)" + "Monitor rate (Mbps)", 4) AS "Total rate (Mbps)",
           ROUND(SUM("Detector rate (Mbps)" + "Monitor rate (Mbps)")  OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate (Mbps)"
-        FROM projections
+        FROM rollout_rates
         ORDER BY date_online;
         """
     )
@@ -253,8 +260,25 @@ def _(mo, projections):
 
 
 @app.cell
-def _():
-    #frame_data_df.write_excel(FRAME_DATA_EXCEL, worksheet="Sheet1", table_name="data")
+def _(FILENAME_XLSX, XLSX_TABLE_STYLE):
+    import duckdb
+    import xlsxwriter
+
+
+    if FILENAME_XLSX.exists():
+        FILENAME_XLSX.unlink()
+
+    with xlsxwriter.Workbook(FILENAME_XLSX) as workbook:
+        duckdb.table("rollout_info").pl().write_excel(
+            workbook, worksheet="Rollout rates", table_name="rollout_rates",
+            table_style=XLSX_TABLE_STYLE
+        )
+        duckdb.table("current_rates").pl().write_excel(
+            workbook, worksheet="Current rates", table_name="current_rates",
+            table_style=XLSX_TABLE_STYLE
+        )
+        for ws in workbook.worksheets():
+            ws.autofit()
     return
 
 
