@@ -8,16 +8,18 @@ app = marimo.App(width="medium")
 def _():
     import os
     from pathlib import Path
+
     import dotenv
     import marimo as mo
 
     dotenv.load_dotenv()
 
     # Data
+    FRAME_DATA_EXCEL = Path() / "isis_frame_data.xlsx"
     REPO_DATA_DIR = Path() / "data"
     RUN_SUMMARY_DIR = Path(os.environ["RUN_SUMMARY_DIR"])
 
-    # Constants
+
     print(f"Loading run summaries from '{RUN_SUMMARY_DIR}'")
     return REPO_DATA_DIR, RUN_SUMMARY_DIR, mo
 
@@ -64,7 +66,9 @@ def _(RUN_SUMMARY_DIR, mo):
                 n.total_detector_mcounts AS nxs_detector_mcounts,
                 n.total_monitor_mcounts AS nxs_monitor_mcounts,
                 ROUND(n.file_size_bytes / 1000**2, 4) AS nxs_file_size_mbytes,
-                ROUND(j.raw_frames/j.duration, 1) as framerate_hz
+                ROUND(j.good_frames/j.duration, 1) as framerate_hz,
+                (nxs_detector_mcounts / good_frames) AS detector_mevents_per_frame,
+                (nxs_monitor_mcounts / good_frames) AS monitor_mevents_per_frame,
             FROM
                 read_parquet('{RUN_SUMMARY_DIR}/*_journal.parquet') j
             JOIN
@@ -75,6 +79,7 @@ def _(RUN_SUMMARY_DIR, mo):
                 AND duration > 0.0
                 AND raw_frames > 1
                 AND good_frames > 1
+                AND framerate_hz < 55
                 AND journal_total_mevents > 0
                 AND journal_total_mevents >= (nxs_detector_mcounts + nxs_monitor_mcounts)
         );
@@ -84,66 +89,47 @@ def _(RUN_SUMMARY_DIR, mo):
 
 
 @app.cell
-def _(mo):
-    _df = mo.sql(
+def _(beamline, mo, run_summary):
+    run_summaries_df = mo.sql(
         f"""
-        -- debugging cell
-        -- select
-        --     *
-        -- from
-        --     run_summary
-        -- where
-        --     beamline = 'LET'
-        --     and event_mode > 0
-        """
-    )
-    return
-
-
-@app.cell
-def _(REPO_DATA_DIR, mo, run_summary):
-    _df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE event_counts_per_run AS (
-            SELECT
-                beamline,
-                cycle_name,
-                run_number,
-                event_mode,
-                duration,
-                framerate_hz,
-                number_periods,
-                number_spectra,
-            	number_monitors,
-            	number_of_time_channels,
-                (nxs_detector_mcounts / good_frames) AS detector_mevents_per_frame,
-                (nxs_monitor_mcounts / good_frames) AS monitor_mevents_per_frame,
-                nxs_file_size_mbytes,
-                FALSE AS endeavour,
+        -- Max rates
+        CREATE OR REPLACE TABLE run_stats AS (
+          SELECT
+                rs.beamline,
+                CONCAT('TS', b.target_station) as target_station,
+                ROUND(QUANTILE(duration, 0.50)) as p50_duration,
+                ROUND(QUANTILE(duration, 0.99)) as p99_duration,
+            	ROUND(QUANTILE(good_frames, 0.99), 1) as p99_good_frames,
+            	ROUND(QUANTILE(framerate_hz, 0.99), 1) as p99_framerate_hz,
+                ROUND(QUANTILE(detector_mevents_per_frame, 0.99), 4) as p99_det_mevents_frame,
+                ROUND(QUANTILE(monitor_mevents_per_frame, 0.99), 4) as p99_mon_mevents_frame,
+                MAX(number_of_time_channels) as max_number_time_channels,
+                MEDIAN(number_periods) as med_number_periods,
+                MAX(number_monitors) as max_number_monitors
             FROM
-                run_summary r
-
-            UNION
-
-            SELECT
-                e.beamline,
-                cycle_name,
-                NULL as run_number,
-                event_mode,
-                duration,
-                r.framerate_hz,
-                number_periods,
-                NULL as number_spectra,
-            	number_monitors,
-            	number_of_time_channels,
-                (nxs_detector_mcounts / good_frames) * e.detector_rate_sf AS detector_mevents_per_frame,
-                (nxs_monitor_mcounts / good_frames) * e.monitor_rate_sf AS monitor_mevents_per_frame,
-                NULL AS nxs_file_size_mbytes,
-                TRUE AS endeavour
-            FROM
-                run_summary r
-            JOIN (SELECT * from READ_JSON('{REPO_DATA_DIR}/endeavour.json')) e ON r.beamline = e.sf_base
+                run_summary rs
+            JOIN beamline b ON rs.beamline = b.beamline
+            GROUP BY
+                rs.beamline, b.target_station
+        	ORDER BY rs.beamline
         );
+        select * from run_stats;
+        -- SELECT
+        --     rs.beamline,
+        --     CONCAT('TS', b.target_station) as target_station,
+        --     p50_duration,
+        --     p99_duration,
+        --     p99_good_frames,
+        --     p99_framerate_hz,
+        --     p99_det_mevents_frame,
+        --     p99_mon_mevents_frame,
+        --     max_number_time_channels,
+        --     med_number_periods,
+        --     max_number_monitors
+        -- FROM
+        --     run_stats rs
+        -- JOIN beamline b ON rs.beamline = b.beamline
+        -- ORDER BY rs.beamline;
         """
     )
     return
@@ -151,223 +137,124 @@ def _(REPO_DATA_DIR, mo, run_summary):
 
 @app.cell
 def _():
-    # ---------------------
-    # Event type information
-    # Matches ESS ev44 schema:
-    # https://github.com/ess-dmsc/streaming-data-types/blob/5fde74d8eb69658073735984acc9465ed10870b1/schemas/ev44_events.fbs
-    #
-    # Assumptions:
-    #   - a single Event44Message per ISIS frame
-    #   - source_name assumes a maximum char length=16
-    # ---------------------
-    ev44_source_name_bits = 16 * 8
-    ev44_message_id_bits = 64
-    ev44_ref_time_bits = 64  # single frame
-    ev44_ref_time_index_bits = 32
+    # Streaming
+    src_name_bytes, msg_id_bytes, ref_time_bytes, ref_time_index_bytes = 16, 8, 8, 8
+    stream_frame_bytes = src_name_bytes + msg_id_bytes + ref_time_bytes + ref_time_index_bytes
 
-    ev44_tof_bits = 32
-    ev44_pixel_id_bits = 32
+    tof_bytes, pixel_id_bytes, diag_bytes = 4, 4, 12
+    stream_event_bytes = tof_bytes + pixel_id_bytes + diag_bytes
 
-    # ---------------------
-    # Diagnostic information
-    # ---------------------
-    diag_bits = 96
+    # NeXus
+    event_index_bytes, event_time_zero_bytes, frame_comp_ratio = 8, 8, 2.5
+    nexus_frame_bytes = (event_index_bytes + event_time_zero_bytes) / frame_comp_ratio
 
-    # ---------------------
-    # NeXus information
-    # ---------------------
-    # Compression numbers were produced by checking a few files and looking at `dataset.nbytes()/dataset.id.get_storage_size()`
-
-    # per frame
-    nxs_event_index_bits = 64
-    nxs_event_time_zero_bits = 64
-    nxs_per_frame_compression_ratio = 2.5
-
-    # per-event
-    nxs_event_id_bits = 32
-    nxs_event_time_offset_bits = 32
-    nxs_per_event_compression_ratio = 1.3
-
-    # histo
-    nxs_histo_count_bits = 32
-    nxs_histo_tof_bits = 32
-    nxs_histo_compression_ratio = 4.5
+    event_id_bytes, event_time_offset_bytes, event_comp_ratio = 4, 4, 1.3
+    nexus_event_bytes = (event_id_bytes + event_time_offset_bytes) / event_comp_ratio
     return (
-        diag_bits,
-        ev44_message_id_bits,
-        ev44_pixel_id_bits,
-        ev44_ref_time_bits,
-        ev44_ref_time_index_bits,
-        ev44_source_name_bits,
-        ev44_tof_bits,
-        nxs_event_id_bits,
-        nxs_event_index_bits,
-        nxs_event_time_offset_bits,
-        nxs_event_time_zero_bits,
-        nxs_histo_compression_ratio,
-        nxs_histo_count_bits,
-        nxs_histo_tof_bits,
-        nxs_per_event_compression_ratio,
-        nxs_per_frame_compression_ratio,
+        nexus_event_bytes,
+        nexus_frame_bytes,
+        stream_event_bytes,
+        stream_frame_bytes,
     )
 
 
 @app.cell
 def _(
-    diag_bits,
-    ev44_message_id_bits,
-    ev44_pixel_id_bits,
-    ev44_ref_time_bits,
-    ev44_ref_time_index_bits,
-    ev44_source_name_bits,
-    ev44_tof_bits,
-    event_counts_per_run,
     mo,
-    nxs_event_id_bits,
-    nxs_event_index_bits,
-    nxs_event_time_offset_bits,
-    nxs_event_time_zero_bits,
-    nxs_histo_compression_ratio,
-    nxs_histo_count_bits,
-    nxs_histo_tof_bits,
-    nxs_per_event_compression_ratio,
-    nxs_per_frame_compression_ratio,
+    nexus_event_bytes,
+    nexus_frame_bytes,
+    run_stats,
+    stream_event_bytes,
+    stream_frame_bytes,
 ):
     _df = mo.sql(
         f"""
-        -- Rates primarily for network bandwidth
-        --   We assume 1 ev44 message holds 1 frame
-        CREATE OR REPLACE MACRO to_mbits_sec (framerate_hz, mevts_per_frame) AS (
-            ROUND(
-                framerate_hz * (
-                    (
-                        {
-            ev44_source_name_bits
-            + ev44_message_id_bits
-            + ev44_ref_time_bits
-            + ev44_ref_time_index_bits
-        }
-                    ) + 1e6 * mevts_per_frame * ({
-            ev44_pixel_id_bits + ev44_tof_bits + diag_bits
-        })
-                ) / 1e6,
-                4
-            )
+        CREATE OR REPLACE FUNCTION to_mbps(framerate, mevents_per_frame) AS (
+          ROUND(framerate * ({stream_frame_bytes} + mevents_per_frame * 1e6 * {stream_event_bytes}) * 8 / 1e6, 4)
         );
 
-        -- Estimate the size of the an NXevent_data group after 1 hour collection
-        CREATE OR REPLACE MACRO nxs_event_gbytes_hr (framerate_hz, mevts_per_frame) AS (
-            ROUND(
-                3600 * framerate_hz * (
-                    (
-                        {nxs_event_index_bits} + {nxs_event_time_zero_bits}
-                    ) / {
-            nxs_per_frame_compression_ratio
-        } + 1e6 * mevts_per_frame * (
-                        {nxs_event_id_bits} + {nxs_event_time_offset_bits}
-                    ) / {nxs_per_event_compression_ratio}
-                ) / 8 / 1e9,
-                4
-            )
+        CREATE OR REPLACE FUNCTION to_nxs_gbhr(framerate, mevents_per_frame) AS (
+          ROUND((3600 * framerate) * ({nexus_frame_bytes} + mevents_per_frame * 1e6 * {nexus_event_bytes})/1e9, 4)
         );
 
-        -- Estimate the size of an NXdata group for a give data shape
-        --   Note: Time channels are shared across the file so only a single copy is accounted for 
-        CREATE OR REPLACE MACRO nxs_histo_gbytes (
-            number_periods,
-            number_spectra,
-            number_time_channels
-        ) AS (
-            ROUND(
-                (
-                    (
-                        number_periods * number_spectra * number_time_channels * {
-            nxs_histo_count_bits
-        }
-                    ) + (number_time_channels + 1) * {nxs_histo_tof_bits}
-                ) / 8 / 1e9 / {nxs_histo_compression_ratio},
-                4
-            )
-        );
-
-        ----------------------------------------------------------------------------------------
-        CREATE OR REPLACE TABLE data_rates_per_run AS (
+        CREATE OR REPLACE TABLE current_rates AS (
             SELECT
-                beamline,
-                TO_MBITS_SEC (framerate_hz, detector_mevents_per_frame) AS detector_mbits_sec,
-                TO_MBITS_SEC (framerate_hz, monitor_mevents_per_frame) AS monitor_mbits_sec,
-                NXS_EVENT_GBYTES_HR (framerate_hz, detector_mevents_per_frame) AS nxs_detector_event_gbytes_hr,
-                NXS_EVENT_GBYTES_HR (framerate_hz, monitor_mevents_per_frame) AS nxs_monitor_event_gbytes_hr,
-                NXS_HISTO_GBYTES (
-                    number_periods,
-                    (number_spectra + number_monitors),
-                    number_of_time_channels
-                ) AS nxs_histo_gbytes_calculated,
-                duration,
-                ROUND(nxs_file_size_mbytes / 1e3, 4) AS nxs_file_size_gbytes_actual,
-                run_number,
-                event_mode,
-                endeavour,
-                cycle_name,
-                -- framerate_hz,
-            FROM
-                event_counts_per_run
+              beamline,
+              target_station,
+              TO_MBPS(p99_framerate_hz, p99_det_mevents_frame) AS "Detector rate (Mbps)",
+              TO_MBPS(p99_framerate_hz, p99_mon_mevents_frame) AS "Monitor rate (Mbps)",
+              TO_NXS_GBHR(p99_framerate_hz, p99_det_mevents_frame) AS "NeXus det rate (GB/hr)",
+              TO_NXS_GBHR(p99_framerate_hz, p99_mon_mevents_frame) AS "NeXus mon rate (GB/hr)"
+            FROM run_stats
         );
-
-        select
-            cycle_name,
-            run_number,
-            nxs_file_size_gbytes_actual
-        from
-            data_rates_per_run
-        where
-            beamline = 'WISH'
-        order by nxs_file_size_gbytes_actual desc
-        limit 1
-
-
+        select * from current_rates
         """
     )
     return
 
 
 @app.cell
-def _(beamline, data_rates_per_run, mo):
+def _(mo):
     _df = mo.sql(
         f"""
-        -- Max rates
-        WITH d_stats AS (
-          SELECT
-                beamline,
-                endeavour,
-                -- we care about the total rate coming over the network
-                ROUND(QUANTILE(detector_mbits_sec, 0.99), 4) as det_p99_mbits_sec,
-                ROUND(QUANTILE(monitor_mbits_sec, 0.99), 4) as mon_p99_mbits_sec,
-                ROUND(QUANTILE(detector_mbits_sec + monitor_mbits_sec, 0.99), 4) as total_p99_mbits_sec,
-                ROUND(QUANTILE(nxs_detector_event_gbytes_hr + nxs_monitor_event_gbytes_hr, 0.999), 4) as p999_nxs_event_gbytes_hr,
-                ROUND(QUANTILE(nxs_detector_event_gbytes_hr, 0.999), 4) as p999_nxs_event_mon_histo_gbytes_hr,
-                MAX(nxs_file_size_gbytes_actual) as max_nxs_histo_gbytes_actual
-            FROM
-                data_rates_per_run d
-            GROUP BY
-                beamline, endeavour
-        )
-        SELECT
-            ds.beamline,
-            det_p99_mbits_sec,
-            mon_p99_mbits_sec,
-            total_p99_mbits_sec,
-            p999_nxs_event_gbytes_hr,
-            p999_nxs_event_mon_histo_gbytes_hr,
-            max_nxs_histo_gbytes_actual,
-            CONCAT('TS', b.target_station) as target_station,
-            ds.endeavour
-        FROM
-            d_stats ds
-        JOIN beamline b ON ds.beamline = b.beamline
-        ORDER BY ds.beamline;
+        CREATE OR REPLACE TABLE endeavour_info AS (
+            SELECT * FROM (
+                VALUES
+                    ('HRPD-X',     'HRPD',    DOUBLE '5.25', DOUBLE '1', DATE '2027-11-01'),
+                    ('SuperMUSR',  'MUSR',    DOUBLE '12.5', DOUBLE '0', DATE '2028-04-01'),
+                    ('SANDALS-II', 'SANDALS', DOUBLE '10',   DOUBLE '2.5', DATE '2028-10-01'),
+                    ('WISH-II',    'WISH',    DOUBLE '4',    DOUBLE '1', DATE '2030-10-01'),
+                    ('MUSHROOM',   'LET',     DOUBLE '50',   DOUBLE '1', DATE '2030-10-01'),
+                    ('TOSCA+',     'TOSCA',   DOUBLE '50',   DOUBLE '1', DATE '2031-10-01'),
+                    ('OSIRIS+',    'OSIRIS',  DOUBLE '50',   DOUBLE '1', DATE '2031-10-01')
+            ) AS t (beamline, baseline, det_sf, mon_sf, date_online)
+        );
+        select * from endeavour_info order by date_online asc;
         """
     )
+    return
+
+
+@app.cell
+def _(current_rates, endeavour_info, mo):
+    _df = mo.sql(
+        f"""
+        CREATE OR REPLACE TABLE projections AS (
+            SELECT
+              e.beamline,
+              ROUND("Detector rate (Mbps)" * det_sf, 4) AS "Detector rate (Mbps)",
+              ROUND("Monitor rate (Mbps)" * mon_sf, 4) AS "Monitor rate (Mbps)",
+              ROUND("NeXus det rate (GB/hr)" * det_sf, 4) AS "NeXus det rate (GB/hr)",
+              ROUND("NeXus mon rate (GB/hr)" * mon_sf, 4) AS "NeXus mon rate (GB/hr)",
+            e.date_online,
+            FROM endeavour_info e
+            LEFT JOIN current_rates cr ON e.baseline = cr.beamline
+            ORDER BY beamline
+        );
+        """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo, projections):
+    _df = mo.sql(
+        f"""
+        SELECT
+          date_online,
+          beamline,
+          ROUND("Detector rate (Mbps)" + "Monitor rate (Mbps)", 4) AS "Total rate (Mbps)",
+          ROUND(SUM("Detector rate (Mbps)" + "Monitor rate (Mbps)")  OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate (Mbps)"
+        FROM projections
+        ORDER BY date_online;
+        """
+    )
+    return
+
+
+@app.cell
+def _():
+    #frame_data_df.write_excel(FRAME_DATA_EXCEL, worksheet="Sheet1", table_name="data")
     return
 
 
