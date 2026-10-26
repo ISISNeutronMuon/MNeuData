@@ -77,7 +77,6 @@ def _(REPO_DATA_DIR, mo):
               ('nxs_event_comp_ratio', 1.3),
           ) AS t (fieldname, num_bytes)
         );
-
         """
     )
     return
@@ -163,9 +162,12 @@ def _(beamline, mo, run_summary):
           SELECT
                 rs.beamline,
                 CONCAT('TS', b.target_station) as target_station,
-                ROUND(QUANTILE(duration, 0.50)) as p50_duration,
-                ROUND(QUANTILE(duration, 0.99)) as p99_duration,
-            	ROUND(QUANTILE(good_frames, 0.99), 1) as p99_good_frames,
+            	ROUND(QUANTILE(framerate_hz, 0.50), 1) as p50_framerate_hz,
+                ROUND(QUANTILE(detector_mevents_per_frame, 0.50), 4) as p50_det_mevents_frame,
+                ROUND(QUANTILE(monitor_mevents_per_frame, 0.50), 4) as p50_mon_mevents_frame,
+            	ROUND(QUANTILE(framerate_hz, 0.75), 1) as p75_framerate_hz,
+                ROUND(QUANTILE(detector_mevents_per_frame, 0.75), 4) as p75_det_mevents_frame,
+                ROUND(QUANTILE(monitor_mevents_per_frame, 0.75), 4) as p75_mon_mevents_frame,
             	ROUND(QUANTILE(framerate_hz, 0.99), 1) as p99_framerate_hz,
                 ROUND(QUANTILE(detector_mevents_per_frame, 0.99), 4) as p99_det_mevents_frame,
                 ROUND(QUANTILE(monitor_mevents_per_frame, 0.99), 4) as p99_mon_mevents_frame,
@@ -208,8 +210,16 @@ def _(
             SELECT
               beamline,
               target_station,
+              TO_MBPS(p50_framerate_hz, p50_det_mevents_frame) AS "P50 Detector rate (Mbps)",
+              TO_MBPS(p50_framerate_hz, p50_mon_mevents_frame) AS "P50 Monitor rate (Mbps)",
+              TO_MBPS(p75_framerate_hz, p75_det_mevents_frame) AS "P75 Detector rate (Mbps)",
+              TO_MBPS(p75_framerate_hz, p75_mon_mevents_frame) AS "P75 Monitor rate (Mbps)",
               TO_MBPS(p99_framerate_hz, p99_det_mevents_frame) AS "P99 Detector rate (Mbps)",
               TO_MBPS(p99_framerate_hz, p99_mon_mevents_frame) AS "P99 Monitor rate (Mbps)",
+              TO_NXS_GBHR(p50_framerate_hz, p50_det_mevents_frame) AS "P50 NeXus det rate (GB/hr)",
+              TO_NXS_GBHR(p50_framerate_hz, p50_mon_mevents_frame) AS "P50 NeXus mon rate (GB/hr)",
+              TO_NXS_GBHR(p75_framerate_hz, p75_det_mevents_frame) AS "P75 NeXus det rate (GB/hr)",
+              TO_NXS_GBHR(p75_framerate_hz, p75_mon_mevents_frame) AS "P75 NeXus mon rate (GB/hr)",
               TO_NXS_GBHR(p99_framerate_hz, p99_det_mevents_frame) AS "P99 NeXus det rate (GB/hr)",
               TO_NXS_GBHR(p99_framerate_hz, p99_mon_mevents_frame) AS "P99 NeXus mon rate (GB/hr)"
             FROM run_stats
@@ -251,9 +261,15 @@ def _(current_rates, mo, rollout_info):
                 SELECT
                   e.beamline,
                   e.date_online,
+                  ROUND(cr."P50 Detector rate (Mbps)" * det_sf, 4) AS "P50 Detector rate (Mbps)",
+                  ROUND(cr."P50 Monitor rate (Mbps)" * mon_sf, 4) AS "P50 Monitor rate (Mbps)",
+                  ROUND(cr."P50 Detector rate (Mbps)" * det_sf + cr."P50 Monitor rate (Mbps)" * mon_sf, 4) AS "Total P50 rate (Mbps)",
+                  ROUND(cr."P75 Detector rate (Mbps)" * det_sf, 4) AS "P75 Detector rate (Mbps)",
+                  ROUND(cr."P75 Monitor rate (Mbps)" * mon_sf, 4) AS "P75 Monitor rate (Mbps)",
+                  ROUND(cr."P75 Detector rate (Mbps)" * det_sf + cr."P75 Monitor rate (Mbps)" * mon_sf, 4) AS "Total P75 rate (Mbps)",
                   ROUND(cr."P99 Detector rate (Mbps)" * det_sf, 4) AS "P99 Detector rate (Mbps)",
                   ROUND(cr."P99 Monitor rate (Mbps)" * mon_sf, 4) AS "P99 Monitor rate (Mbps)",
-                  ROUND(cr."P99 Detector rate (Mbps)" * det_sf + cr."P99 Monitor rate (Mbps)" * mon_sf, 4) AS "Total rate (Mbps)",
+                  ROUND(cr."P99 Detector rate (Mbps)" * det_sf + cr."P99 Monitor rate (Mbps)" * mon_sf, 4) AS "Total P99 rate (Mbps)",
                 FROM
                   rollout_info e
                 LEFT JOIN current_rates cr ON e.baseline = cr.beamline  
@@ -261,10 +277,18 @@ def _(current_rates, mo, rollout_info):
             SELECT
               beamline as Beamline,
         	  date_online AS "Date Online",
+              "P50 Detector rate (Mbps)",
+              "P50 Monitor rate (Mbps)",
+              "Total P50 rate (Mbps)",
+              "P75 Detector rate (Mbps)",
+              "P75 Monitor rate (Mbps)",
+              "Total P75 rate (Mbps)",
               "P99 Detector rate (Mbps)",
               "P99 Monitor rate (Mbps)",
-              "Total rate (Mbps)",
-              ROUND(SUM("Total rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate (Mbps)",
+              "Total P99 rate (Mbps)",
+              ROUND(SUM("Total P50 rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate P50 (Mbps)",
+              ROUND(SUM("Total P75 rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate P75 (Mbps)",
+              ROUND(SUM("Total P99 rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate P99 (Mbps)",
             FROM tmp
             ORDER BY date_online ASC
         );
@@ -283,6 +307,10 @@ def _(current_rates, mo, rollout_info):
                 SELECT
                   e.beamline,
                   e.date_online,
+                  ROUND(cr."P50 NeXus det rate (GB/hr)" * det_sf, 4) AS "P50 NeXus det rate (GB/hr)",
+                  ROUND(cr."P50 NeXus mon rate (GB/hr)" * mon_sf, 4) AS "P50 NeXus mon rate (GB/hr)",
+                  ROUND(cr."P75 NeXus det rate (GB/hr)" * det_sf, 4) AS "P75 NeXus det rate (GB/hr)",
+                  ROUND(cr."P75 NeXus mon rate (GB/hr)" * mon_sf, 4) AS "P75 NeXus mon rate (GB/hr)",
                   ROUND(cr."P99 NeXus det rate (GB/hr)" * det_sf, 4) AS "P99 NeXus det rate (GB/hr)",
                   ROUND(cr."P99 NeXus mon rate (GB/hr)" * mon_sf, 4) AS "P99 NeXus mon rate (GB/hr)",
                 FROM
@@ -292,11 +320,15 @@ def _(current_rates, mo, rollout_info):
             SELECT
               beamline as Beamline,
         	  date_online AS "Date Online",
+              "P50 NeXus det rate (GB/hr)",
+              "P50 NeXus mon rate (GB/hr)",
+              ROUND(tmp."P50 NeXus det rate (GB/hr)" + tmp."P50 NeXus mon rate (GB/hr)", 4) AS "NeXus total P50 (GB/hr)",
+              "P75 NeXus det rate (GB/hr)",
+              "P75 NeXus mon rate (GB/hr)",
+              ROUND(tmp."P75 NeXus det rate (GB/hr)" + tmp."P75 NeXus mon rate (GB/hr)", 4) AS "NeXus total P75 (GB/hr)",
               "P99 NeXus det rate (GB/hr)",
               "P99 NeXus mon rate (GB/hr)",
-              ROUND(tmp."P99 NeXus det rate (GB/hr)" + tmp."P99 NeXus mon rate (GB/hr)", 4) AS "NeXus total rate (GB/hr)",
-              ROUND(SUM("P99 NeXus det rate (GB/hr)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative Nexus det (GB/hr)",
-              ROUND(SUM("P99 NeXus mon rate (GB/hr)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative Nexus mon (GB/hr)"
+              ROUND(tmp."P99 NeXus det rate (GB/hr)" + tmp."P99 NeXus mon rate (GB/hr)", 4) AS "NeXus total P99 (GB/hr)",
             FROM tmp
             ORDER BY date_online ASC
         );
