@@ -50,7 +50,7 @@ def _():
 def _(REPO_DATA_DIR, mo):
     _df = mo.sql(
         f"""
-        -- Repo, static data
+        -- Static data
         CREATE OR REPLACE TABLE beamline AS (
             SELECT
                 beamline,
@@ -58,6 +58,26 @@ def _(REPO_DATA_DIR, mo):
             FROM
                 read_json('{REPO_DATA_DIR}/beamline.json')
         );
+
+        CREATE OR REPLACE TABLE data_sizes AS (
+          SELECT * FROM (
+            VALUES
+              ('ev44_src_name_bytes', 16),
+              ('ev44_msg_id_bytes', 8),
+              ('ev44_ref_time_bytes', 8),
+              ('ev44_ref_time_index_bytes', 8),
+              ('ev44_tof_bytes', 4),
+              ('ev44_pixel_id_bytes', 4),
+              ('event_diag', 12),
+              ('nxs_event_index', 8),
+              ('nxs_event_time_zero', 8),
+              ('nxs_frame_comp_ratio', 2.5),
+              ('nxs_event_id', 4),
+              ('nxs_event_time_offset', 4),
+              ('nxs_event_comp_ratio', 1.3),
+          ) AS t (fieldname, num_bytes)
+        );
+
         """
     )
     return
@@ -188,13 +208,13 @@ def _(
             SELECT
               beamline,
               target_station,
-              TO_MBPS(p99_framerate_hz, p99_det_mevents_frame) AS "Detector rate (Mbps)",
-              TO_MBPS(p99_framerate_hz, p99_mon_mevents_frame) AS "Monitor rate (Mbps)",
-              TO_NXS_GBHR(p99_framerate_hz, p99_det_mevents_frame) AS "NeXus det rate (GB/hr)",
-              TO_NXS_GBHR(p99_framerate_hz, p99_mon_mevents_frame) AS "NeXus mon rate (GB/hr)"
+              TO_MBPS(p99_framerate_hz, p99_det_mevents_frame) AS "P99 Detector rate (Mbps)",
+              TO_MBPS(p99_framerate_hz, p99_mon_mevents_frame) AS "P99 Monitor rate (Mbps)",
+              TO_NXS_GBHR(p99_framerate_hz, p99_det_mevents_frame) AS "P99 NeXus det rate (GB/hr)",
+              TO_NXS_GBHR(p99_framerate_hz, p99_mon_mevents_frame) AS "P99 NeXus mon rate (GB/hr)"
             FROM run_stats
         );
-        select * from current_rates
+        select * from current_rates;
         """
     )
     return
@@ -213,7 +233,7 @@ def _(mo):
                     ('WISH-II',    'WISH',    DOUBLE '4',    DOUBLE '1', DATE '2030-10-01'),
                     ('MUSHROOM',   'LET',     DOUBLE '50',   DOUBLE '1', DATE '2030-10-01'),
                     ('TOSCA+',     'TOSCA',   DOUBLE '50',   DOUBLE '1', DATE '2031-10-01'),  -- WHERE DID I GET THIS FROM?
-                    ('OSIRIS+',    'OSIRIS',  DOUBLE '50',   DOUBLE '1', DATE '2031-10-01').  -- WHERE DID I GET THIS FROM?
+                    ('OSIRIS+',    'OSIRIS',  DOUBLE '50',   DOUBLE '1', DATE '2031-10-01')   -- WHERE DID I GET THIS FROM?
             ) AS t (beamline, baseline, det_sf, mon_sf, date_online)
         );
         select * from rollout_info order by date_online asc;
@@ -226,34 +246,61 @@ def _(mo):
 def _(current_rates, mo, rollout_info):
     _df = mo.sql(
         f"""
-        CREATE OR REPLACE TABLE rollout_rates AS (
+        CREATE OR REPLACE TABLE streaming_rollout AS (
+            WITH tmp AS (
+                SELECT
+                  e.beamline,
+                  e.date_online,
+                  ROUND(cr."P99 Detector rate (Mbps)" * det_sf, 4) AS "P99 Detector rate (Mbps)",
+                  ROUND(cr."P99 Monitor rate (Mbps)" * mon_sf, 4) AS "P99 Monitor rate (Mbps)",
+                  ROUND(cr."P99 Detector rate (Mbps)" * det_sf + cr."P99 Monitor rate (Mbps)" * mon_sf, 4) AS "Total rate (Mbps)",
+                FROM
+                  rollout_info e
+                LEFT JOIN current_rates cr ON e.baseline = cr.beamline  
+            )
             SELECT
-              e.beamline,
-              ROUND("Detector rate (Mbps)" * det_sf, 4) AS "Detector rate (Mbps)",
-              ROUND("Monitor rate (Mbps)" * mon_sf, 4) AS "Monitor rate (Mbps)",
-              ROUND("NeXus det rate (GB/hr)" * det_sf, 4) AS "NeXus det rate (GB/hr)",
-              ROUND("NeXus mon rate (GB/hr)" * mon_sf, 4) AS "NeXus mon rate (GB/hr)",
-            e.date_online,
-            FROM rollout_info e
-            LEFT JOIN current_rates cr ON e.baseline = cr.beamline
-            ORDER BY beamline
+              beamline as Beamline,
+        	  date_online AS "Date Online",
+              "P99 Detector rate (Mbps)",
+              "P99 Monitor rate (Mbps)",
+              "Total rate (Mbps)",
+              ROUND(SUM("Total rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate (Mbps)",
+            FROM tmp
+            ORDER BY date_online ASC
         );
+        select * from streaming_rollout;
         """
     )
     return
 
 
 @app.cell
-def _(mo, rollout_rates):
+def _(current_rates, mo, rollout_info):
     _df = mo.sql(
         f"""
-        SELECT
-          date_online,
-          beamline,
-          ROUND("Detector rate (Mbps)" + "Monitor rate (Mbps)", 4) AS "Total rate (Mbps)",
-          ROUND(SUM("Detector rate (Mbps)" + "Monitor rate (Mbps)")  OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate (Mbps)"
-        FROM rollout_rates
-        ORDER BY date_online;
+        CREATE OR REPLACE TABLE nexus_rollout AS (
+            WITH tmp AS (
+                SELECT
+                  e.beamline,
+                  e.date_online,
+                  ROUND(cr."P99 NeXus det rate (GB/hr)" * det_sf, 4) AS "P99 NeXus det rate (GB/hr)",
+                  ROUND(cr."P99 NeXus mon rate (GB/hr)" * mon_sf, 4) AS "P99 NeXus mon rate (GB/hr)",
+                FROM
+                  rollout_info e
+                LEFT JOIN current_rates cr ON e.baseline = cr.beamline  
+            )
+            SELECT
+              beamline as Beamline,
+        	  date_online AS "Date Online",
+              "P99 NeXus det rate (GB/hr)",
+              "P99 NeXus mon rate (GB/hr)",
+              ROUND(tmp."P99 NeXus det rate (GB/hr)" + tmp."P99 NeXus mon rate (GB/hr)", 4) AS "NeXus total rate (GB/hr)",
+              ROUND(SUM("P99 NeXus det rate (GB/hr)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative Nexus det (GB/hr)",
+              ROUND(SUM("P99 NeXus mon rate (GB/hr)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative Nexus mon (GB/hr)"
+            FROM tmp
+            ORDER BY date_online ASC
+        );
+        select * from nexus_rollout;
         """
     )
     return
@@ -264,18 +311,43 @@ def _(FILENAME_XLSX, XLSX_TABLE_STYLE):
     import duckdb
     import xlsxwriter
 
-
     if FILENAME_XLSX.exists():
         FILENAME_XLSX.unlink()
 
+    gap = 5
+    common_args = dict(table_style=XLSX_TABLE_STYLE)
     with xlsxwriter.Workbook(FILENAME_XLSX) as workbook:
-        duckdb.table("rollout_info").pl().write_excel(
-            workbook, worksheet="Rollout rates", table_name="rollout_rates",
-            table_style=XLSX_TABLE_STYLE
+        streaming_rollout_df = duckdb.table("streaming_rollout").pl()
+        streaming_rollout_df.write_excel(
+            workbook,
+            worksheet="Rollout",
+            table_name="streaming_rollout",
+            **common_args,
+        )
+        duckdb.table("nexus_rollout").pl().write_excel(
+            workbook,
+            worksheet="Rollout",
+            table_name="nexus_rollout",
+            position=(streaming_rollout_df.height + gap, 0),
+            **common_args,
         )
         duckdb.table("current_rates").pl().write_excel(
-            workbook, worksheet="Current rates", table_name="current_rates",
-            table_style=XLSX_TABLE_STYLE
+            workbook,
+            worksheet="Current rates",
+            table_name="current_rates",
+            **common_args,
+        )
+        duckdb.table("rollout_info").pl().write_excel(
+            workbook,
+            worksheet="Rollout Info",
+            table_name="rollout_info",
+            **common_args,
+        )
+        duckdb.table("data_sizes").pl().write_excel(
+            workbook,
+            worksheet="Data sizes",
+            table_name="data_sizes",
+            **common_args,
         )
         for ws in workbook.worksheets():
             ws.autofit()
