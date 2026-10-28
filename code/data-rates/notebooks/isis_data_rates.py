@@ -242,8 +242,8 @@ def _(mo):
                     ('SANDALS-II', 'SANDALS', DOUBLE '10',   DOUBLE '2.5', DATE '2028-10-01'),
                     ('WISH-II',    'WISH',    DOUBLE '4',    DOUBLE '1', DATE '2030-10-01'),
                     ('MUSHROOM',   'LET',     DOUBLE '50',   DOUBLE '1', DATE '2030-10-01'),
-                    ('TOSCA+',     'TOSCA',   DOUBLE '50',   DOUBLE '1', DATE '2031-10-01'),  -- WHERE DID I GET THIS FROM?
-                    ('OSIRIS+',    'OSIRIS',  DOUBLE '50',   DOUBLE '1', DATE '2031-10-01')   -- WHERE DID I GET THIS FROM?
+                    ('TOSCA+',     'TOSCA',   DOUBLE '10',   DOUBLE '1', DATE '2031-10-01'), 
+                    ('OSIRIS+',    'OSIRIS',  DOUBLE '10',   DOUBLE '1', DATE '2031-10-01')
             ) AS t (beamline, baseline, det_sf, mon_sf, date_online)
         );
         select * from rollout_info order by date_online asc;
