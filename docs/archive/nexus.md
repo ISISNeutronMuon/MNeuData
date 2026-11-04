@@ -42,7 +42,7 @@ The following entries are the minimum required to reconstruct the event informat
 | `event_index`       | int-64    | For each frame, defines the index of the first event in `event_id` that belongs to that frame. |
 | `event_time_offset` | float-32  | The event time-of-flight defined as an array of offsets from frame start (`event_time_zero`).  |
 | `event_time_zero`   | float-64  | The start of each frame defined as an array of offsets, in seconds, from run `start_time`.     |
-| `total_counts`      | int-64    | The total number of events recorded by all detector pixels. Matches Length(`event_id`).        |
+| `total_counts`      | int-64    | The total number of events recorded by all detector pixels.                                    |
 <!-- prettier-ignore-end -->
 
 The following additional entries appear in ISIS event files to deal with legacy issues with electronics:
