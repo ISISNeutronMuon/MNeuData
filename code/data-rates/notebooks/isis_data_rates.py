@@ -24,29 +24,6 @@ def _():
 
 
 @app.cell
-def _():
-    # Streaming
-    src_name_bytes, msg_id_bytes, ref_time_bytes, ref_time_index_bytes = 16, 8, 8, 8
-    stream_frame_bytes = src_name_bytes + msg_id_bytes + ref_time_bytes + ref_time_index_bytes
-
-    tof_bytes, pixel_id_bytes, diag_bytes = 4, 4, 12
-    stream_event_bytes = tof_bytes + pixel_id_bytes + diag_bytes
-
-    # NeXus
-    event_index_bytes, event_time_zero_bytes, frame_comp_ratio = 8, 8, 2.5
-    nexus_frame_bytes = (event_index_bytes + event_time_zero_bytes) / frame_comp_ratio
-
-    event_id_bytes, event_time_offset_bytes, event_comp_ratio = 4, 4, 1.3
-    nexus_event_bytes = (event_id_bytes + event_time_offset_bytes) / event_comp_ratio
-    return (
-        nexus_event_bytes,
-        nexus_frame_bytes,
-        stream_event_bytes,
-        stream_frame_bytes,
-    )
-
-
-@app.cell
 def _(REPO_DATA_DIR, mo):
     _df = mo.sql(
         f"""
@@ -59,23 +36,43 @@ def _(REPO_DATA_DIR, mo):
                 read_json('{REPO_DATA_DIR}/beamline.json')
         );
 
-        CREATE OR REPLACE TABLE data_sizes AS (
-          SELECT * FROM (
-            VALUES
-              ('ev44_src_name_bytes', 16),
-              ('ev44_msg_id_bytes', 8),
-              ('ev44_ref_time_bytes', 8),
-              ('ev44_ref_time_index_bytes', 8),
-              ('ev44_tof_bytes', 4),
-              ('ev44_pixel_id_bytes', 4),
-              ('event_diag', 12),
-              ('nxs_event_index', 8),
-              ('nxs_event_time_zero', 8),
-              ('nxs_frame_comp_ratio', 2.5),
-              ('nxs_event_id', 4),
-              ('nxs_event_time_offset', 4),
-              ('nxs_event_comp_ratio', 1.3),
-          ) AS t (fieldname, num_bytes)
+        CREATE OR REPLACE TABLE mneudata_rollout_info AS (
+            SELECT * FROM (
+                VALUES
+                    ('HRPD-X',     'HRPD',    DOUBLE '5.25', DOUBLE '1', DATE '2027-11-01'),
+                    ('SuperMUSR',  'MUSR',    DOUBLE '4', DOUBLE '0', DATE '2028-04-01'),
+                    ('SANDALS-II', 'SANDALS', DOUBLE '10',   DOUBLE '2.5', DATE '2028-10-01'),
+                    ('WISH-II',    'WISH',    DOUBLE '4',    DOUBLE '1', DATE '2030-10-01'),
+                    ('MUSHROOM',   'LET',     DOUBLE '50',   DOUBLE '1', DATE '2030-10-01'),
+                    ('TOSCA+',     'TOSCA',   DOUBLE '10',   DOUBLE '1', DATE '2031-10-01'), 
+                    ('OSIRIS+',    'OSIRIS',  DOUBLE '10',   DOUBLE '1', DATE '2031-10-01')
+            ) AS t (beamline, baseline, det_sf, mon_sf, date_online)
+        );
+        """
+    )
+    return
+
+
+@app.cell
+def _():
+    # Data sizes
+    # See https://github.com/ISISComputingGroup/streaming-data-types/tree/main/schemas
+
+    src_name_bytes, msg_id_bytes, ref_time_bytes, ref_time_index_bytes, tof_bytes, pixel_id_bytes = 16, 8, 8, 4, 4, 4 
+    ev44_bytes = (src_name_bytes + msg_id_bytes + ref_time_bytes + ref_time_index_bytes + tof_bytes + pixel_id_bytes)
+    return (ev44_bytes,)
+
+
+@app.cell
+def _(ev44_bytes, mo):
+    _df = mo.sql(
+        f"""
+        CREATE OR REPLACE FUNCTION to_mbps_ev44(framerate, mevents_per_frame) AS (
+          ROUND(framerate * mevents_per_frame * {ev44_bytes} * 8, 4)
+        );
+
+        CREATE OR REPLACE FUNCTION to_msg_kbytes_ev44(mevents_per_frame) AS (
+          ROUND(1e3 * mevents_per_frame * {ev44_bytes}, 4)
         );
         """
     )
@@ -86,9 +83,8 @@ def _(REPO_DATA_DIR, mo):
 def _(RUN_SUMMARY_DIR, mo):
     _df = mo.sql(
         f"""
-        -- Run data tables
-        -- Exclude runs where the total number of events recorded by the DAE counter is less
-        -- than recorded in the files.
+        -- Raw run data tables
+        -- Exclude runs where they are "obviously" bad
         CREATE OR REPLACE TABLE run_summary AS (
             SELECT
                 j.beamline,
@@ -122,7 +118,8 @@ def _(RUN_SUMMARY_DIR, mo):
                 AND good_frames > 1
                 AND framerate_hz < 55
                 AND journal_total_mevents > 0
-                -- AND journal_total_mevents >= (nxs_detector_mcounts + nxs_monitor_mcounts)
+                AND nxs_detector_mcounts > 0
+                AND nxs_monitor_mcounts >= 0
         );
         """
     )
@@ -130,129 +127,95 @@ def _(RUN_SUMMARY_DIR, mo):
 
 
 @app.cell
-def _(mo):
+def _(ev44_bytes, mo):
     _df = mo.sql(
         f"""
         -- debugging cell
-        -- SELECT
-        --   beamline,
-        --   journal_total_mevents,
-        --   nxs_detector_mcounts + nxs_monitor_mcounts
-        -- FROM
-        --   run_summary
-        -- WHERE beamline = 'LARMOR'
+        -- select
 
-        -- SELECT
+        --     (2e9/3600),
         --     beamline,
-        --     cycle_name,
-        --     (SUM(duration) / 3600 / 24) AS total_duration_days
-        -- FROM run_summary
-        -- GROUP BY beamline, cycle_name
-        -- ORDER BY beamline, cycle_name
+        --     run_number,
+        --     detector_mevents_per_frame*1e6*framerate_hz as det_events_sec
+        --     -- det_events_sec * {ev44_bytes} * 8 / 1e6
+        --     --monitor_mevents_per_frame*1e6*framerate_hz*3600*4 as mon_events_hr,
+
+        -- from run_summary where beamline='MUSR'
         """
     )
     return
 
 
 @app.cell
-def _(beamline, mo, run_summary):
-    run_summaries_df = mo.sql(
-        f"""
-        CREATE OR REPLACE TABLE run_stats AS (
-          SELECT
-                rs.beamline,
-                CONCAT('TS', b.target_station) as target_station,
-            	ROUND(QUANTILE(framerate_hz, 0.50), 1) as p50_framerate_hz,
-                ROUND(QUANTILE(detector_mevents_per_frame, 0.50), 4) as p50_det_mevents_frame,
-                ROUND(QUANTILE(monitor_mevents_per_frame, 0.50), 4) as p50_mon_mevents_frame,
-            	ROUND(QUANTILE(framerate_hz, 0.75), 1) as p75_framerate_hz,
-                ROUND(QUANTILE(detector_mevents_per_frame, 0.75), 4) as p75_det_mevents_frame,
-                ROUND(QUANTILE(monitor_mevents_per_frame, 0.75), 4) as p75_mon_mevents_frame,
-            	ROUND(QUANTILE(framerate_hz, 0.99), 1) as p99_framerate_hz,
-                ROUND(QUANTILE(detector_mevents_per_frame, 0.99), 4) as p99_det_mevents_frame,
-                ROUND(QUANTILE(monitor_mevents_per_frame, 0.99), 4) as p99_mon_mevents_frame,
-                MAX(number_of_time_channels) as max_number_time_channels,
-                MEDIAN(number_periods) as med_number_periods,
-                MAX(number_monitors) as max_number_monitors
-            FROM
-                run_summary rs
-            JOIN beamline b ON rs.beamline = b.beamline
-            GROUP BY
-                rs.beamline, b.target_station
-        	ORDER BY rs.beamline
-        );
-        select * from run_stats;
-        """
-    )
-    return
-
-
-@app.cell
-def _(
-    mo,
-    nexus_event_bytes,
-    nexus_frame_bytes,
-    run_stats,
-    stream_event_bytes,
-    stream_frame_bytes,
-):
+def _(beamline, mneudata_rollout_info, mo, run_summary):
     _df = mo.sql(
         f"""
-        CREATE OR REPLACE FUNCTION to_mbps(framerate, mevents_per_frame) AS (
-          ROUND(framerate * ({stream_frame_bytes} + mevents_per_frame * 1e6 * {stream_event_bytes}) * 8 / 1e6, 4)
-        );
-
-        CREATE OR REPLACE FUNCTION to_nxs_gbhr(framerate, mevents_per_frame) AS (
-          ROUND((3600 * framerate) * ({nexus_frame_bytes} + mevents_per_frame * 1e6 * {nexus_event_bytes})/1e9, 4)
-        );
-
-        CREATE OR REPLACE TABLE current_rates AS (
+        CREATE OR REPLACE TABLE data_rates_per_run AS (
+          WITH current_suite AS (
             SELECT
-              beamline,
-              target_station,
-              TO_MBPS(p50_framerate_hz, p50_det_mevents_frame) AS "P50 Detector rate (Mbps)",
-              TO_MBPS(p50_framerate_hz, p50_mon_mevents_frame) AS "P50 Monitor rate (Mbps)",
-              TO_MBPS(p75_framerate_hz, p75_det_mevents_frame) AS "P75 Detector rate (Mbps)",
-              TO_MBPS(p75_framerate_hz, p75_mon_mevents_frame) AS "P75 Monitor rate (Mbps)",
-              TO_MBPS(p99_framerate_hz, p99_det_mevents_frame) AS "P99 Detector rate (Mbps)",
-              TO_MBPS(p99_framerate_hz, p99_mon_mevents_frame) AS "P99 Monitor rate (Mbps)",
-              TO_NXS_GBHR(p50_framerate_hz, p50_det_mevents_frame) AS "P50 NeXus det rate (GB/hr)",
-              TO_NXS_GBHR(p50_framerate_hz, p50_mon_mevents_frame) AS "P50 NeXus mon rate (GB/hr)",
-              TO_NXS_GBHR(p75_framerate_hz, p75_det_mevents_frame) AS "P75 NeXus det rate (GB/hr)",
-              TO_NXS_GBHR(p75_framerate_hz, p75_mon_mevents_frame) AS "P75 NeXus mon rate (GB/hr)",
-              TO_NXS_GBHR(p99_framerate_hz, p99_det_mevents_frame) AS "P99 NeXus det rate (GB/hr)",
-              TO_NXS_GBHR(p99_framerate_hz, p99_mon_mevents_frame) AS "P99 NeXus mon rate (GB/hr)"
-            FROM run_stats
+              rs.beamline,
+              CONCAT('TS', b.target_station) AS target_station,
+              run_number,
+              false AS endeavour,
+              to_mbps_ev44(rs.framerate_hz, rs.detector_mevents_per_frame) AS det_events_mbps,
+              to_mbps_ev44(rs.framerate_hz, rs.monitor_mevents_per_frame) AS mon_events_mbps,
+              to_msg_kbytes_ev44(rs.detector_mevents_per_frame) AS det_msg_size_kbytes,
+              to_msg_kbytes_ev44(rs.monitor_mevents_per_frame) AS mon_msg_size_kbytes
+            FROM
+              run_summary rs
+            JOIN beamline b ON rs.beamline = b.beamline
+          ),
+          endeavour AS (
+        	SELECT
+              m.beamline,
+              c.target_station,
+              c.run_number,
+              true AS endeavour,
+              ROUND(det_events_mbps * m.det_sf, 4) AS det_events_mbps,
+              ROUND(mon_events_mbps * m.mon_sf, 4) AS mon_events_mbps,
+              ROUND(det_msg_size_kbytes * m.det_sf, 4) AS det_msg_size_kbytes,
+              ROUND(mon_msg_size_kbytes * m.mon_sf, 4) AS mon_msg_size_kbytes
+            FROM
+              mneudata_rollout_info m
+            LEFT JOIN current_suite c ON c.beamline = m.baseline
+          )
+
+          select * from current_suite
+          UNION
+          select * from endeavour
         );
-        select * from current_rates;
+        select * from data_rates_per_run where beamline = 'SuperMUSR';
         """
     )
     return
 
 
 @app.cell
-def _(mo):
+def _(data_rates_per_run, mo):
     _df = mo.sql(
         f"""
-        CREATE OR REPLACE TABLE rollout_info AS (
-            SELECT * FROM (
-                VALUES
-                    ('HRPD-X',     'HRPD',    DOUBLE '5.25', DOUBLE '1', DATE '2027-11-01'),
-                    ('SuperMUSR',  'MUSR',    DOUBLE '12.5', DOUBLE '0', DATE '2028-04-01'),
-                    ('SANDALS-II', 'SANDALS', DOUBLE '10',   DOUBLE '2.5', DATE '2028-10-01'),
-                    ('WISH-II',    'WISH',    DOUBLE '4',    DOUBLE '1', DATE '2030-10-01'),
-                    ('MUSHROOM',   'LET',     DOUBLE '50',   DOUBLE '1', DATE '2030-10-01'),
-                    ('TOSCA+',     'TOSCA',   DOUBLE '10',   DOUBLE '1', DATE '2031-10-01'), 
-                    ('OSIRIS+',    'OSIRIS',  DOUBLE '10',   DOUBLE '1', DATE '2031-10-01')
-            ) AS t (beamline, baseline, det_sf, mon_sf, date_online)
+        CREATE OR REPLACE TABLE data_rates_stats AS (
+          SELECT
+            beamline,
+            ROUND(QUANTILE(det_events_mbps, 0.5), 4) AS p50_det_events_mbps, 
+            ROUND(QUANTILE(mon_events_mbps, 0.5), 4) AS p50_mon_events_mbps, 
+            ROUND(QUANTILE(det_events_mbps, 0.99), 4) AS p99_det_events_mbps, 
+            ROUND(QUANTILE(mon_events_mbps, 0.99), 4) AS p99_mon_events_mbps, 
+            ROUND(QUANTILE(det_events_mbps + mon_events_mbps, 0.5), 4) AS p50_tot_events_mbps, 
+            ROUND(QUANTILE(det_events_mbps + mon_events_mbps, 0.99), 4) AS p99_tot_events_mbps,
+            target_station,
+            endeavour,
+          FROM data_rates_per_run
+          GROUP BY
+            beamline, target_station, endeavour
         );
-        select * from rollout_info order by date_online asc;
+        select * from data_rates_stats order by beamline ASC;
         """
     )
     return
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(current_rates, mo, rollout_info):
     _df = mo.sql(
         f"""
@@ -261,13 +224,17 @@ def _(current_rates, mo, rollout_info):
                 SELECT
                   e.beamline,
                   e.date_online,
+                  ROUND(cr."P50 Detector count rate (M/s)" * det_sf, 4) AS "P50 Detector count rate (M/s)",
                   ROUND(cr."P50 Detector rate (Mbps)" * det_sf, 4) AS "P50 Detector rate (Mbps)",
+        		  ROUND(cr."P50 Message size (MB)" * det_sf, 4) AS "P50 Message size (MB)",
                   ROUND(cr."P50 Monitor rate (Mbps)" * mon_sf, 4) AS "P50 Monitor rate (Mbps)",
                   ROUND(cr."P50 Detector rate (Mbps)" * det_sf + cr."P50 Monitor rate (Mbps)" * mon_sf, 4) AS "Total P50 rate (Mbps)",
                   ROUND(cr."P75 Detector rate (Mbps)" * det_sf, 4) AS "P75 Detector rate (Mbps)",
+        		  ROUND(cr."P75 Message size (MB)" * det_sf, 4) AS "P75 Message size (MB)",
                   ROUND(cr."P75 Monitor rate (Mbps)" * mon_sf, 4) AS "P75 Monitor rate (Mbps)",
                   ROUND(cr."P75 Detector rate (Mbps)" * det_sf + cr."P75 Monitor rate (Mbps)" * mon_sf, 4) AS "Total P75 rate (Mbps)",
                   ROUND(cr."P99 Detector rate (Mbps)" * det_sf, 4) AS "P99 Detector rate (Mbps)",
+        		  ROUND(cr."P99 Message size (MB)" * det_sf, 4) AS "P99 Message size (MB)",
                   ROUND(cr."P99 Monitor rate (Mbps)" * mon_sf, 4) AS "P99 Monitor rate (Mbps)",
                   ROUND(cr."P99 Detector rate (Mbps)" * det_sf + cr."P99 Monitor rate (Mbps)" * mon_sf, 4) AS "Total P99 rate (Mbps)",
                 FROM
@@ -277,17 +244,21 @@ def _(current_rates, mo, rollout_info):
             SELECT
               beamline as Beamline,
         	  date_online AS "Date Online",
+              -- "P50 Detector count rate (M/s)",
               "P50 Detector rate (Mbps)",
+              "P50 Message size (MB)",
               "P50 Monitor rate (Mbps)",
               "Total P50 rate (Mbps)",
               "P75 Detector rate (Mbps)",
-              "P75 Monitor rate (Mbps)",
-              "Total P75 rate (Mbps)",
+              "P75 Message size (MB)",
+              -- "P75 Monitor rate (Mbps)",
+              -- "Total P75 rate (Mbps)",
               "P99 Detector rate (Mbps)",
+              "P99 Message size (MB)",
               "P99 Monitor rate (Mbps)",
               "Total P99 rate (Mbps)",
               ROUND(SUM("Total P50 rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate P50 (Mbps)",
-              ROUND(SUM("Total P75 rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate P75 (Mbps)",
+              -- ROUND(SUM("Total P75 rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate P75 (Mbps)",
               ROUND(SUM("Total P99 rate (Mbps)") OVER (ORDER BY date_online ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 4) AS "Cumulative rate P99 (Mbps)",
             FROM tmp
             ORDER BY date_online ASC
@@ -338,7 +309,7 @@ def _(current_rates, mo, rollout_info):
     return
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(FILENAME_XLSX, XLSX_TABLE_STYLE):
     import duckdb
     import xlsxwriter
